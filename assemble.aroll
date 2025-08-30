@@ -1,0 +1,19 @@
+length = 6
+
+set 0 1000000 // Iteration limit
+set 1 0 // Value being incremented
+set 2 0 // Check if greater
+set 3 0 // Iteration start header
+set 4 6 // Iteration end
+set 5 1 // For the sum of all numbers
+
+// Here the operations start
+greaterThan 0 1 2
+not 2 2
+
+jumpIf 2 4
+iterate 1
+divide 5 1 5
+jumpIf 0 3
+
+printNumbers 5 1

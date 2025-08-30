@@ -1,0 +1,43 @@
+length 10   // Out "Stack" has the size 10
+
+set a 48 1   // Set some variable to 48, the variables start from 0
+set b 49 1   // Set another var to 49, this variable has index 1
+// The 1 is the amount of doubles that this variable should take up.
+
+// We can also just not use this naming, although it can help
+set 0 48
+
+set c 0 8
+
+// These statements can ONLY appear before the rest of the assembly tho
+
+printNum a 1 // a is the array position of a
+// Output: 1
+
+print a 1 // Interpret as ASCII
+// Output: "H"
+
+print a 2
+// Output "HI"
+
+print a* 1 // a* is the value of a
+// Value outside of array, maybe core dumped.
+
+add a b a // Add a and b and save to the position a
+print a 1
+// Output "a"
+
+printNum c 8
+// Output: 0.0, 0.0, ...
+
+foreach c named j {
+    copy a j
+}
+
+// When assembled this is just turned into:
+// copy 0 2
+// copy 0 3
+// ...
+
+printNum c 8
+// Output: 97.0, 97.0, ...

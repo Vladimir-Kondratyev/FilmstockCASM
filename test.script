@@ -1,0 +1,5 @@
+var x = 1
+
+print(2+2*8)
+
+var y = 2

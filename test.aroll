@@ -1,0 +1,5 @@
+length = 3
+set 0 18.0
+set 1 1.0
+set 2 2.0
+printNumbers 0 1

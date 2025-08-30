@@ -1,0 +1,255 @@
+    public static final int OPENED = 1;
+    public static final int CLOSED = 2;
+
+    public static final char[] NUMBERS = new char[] {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'};
+
+    public static final char[] OPERATIONS = new char[] {'(', ')', '^', '/', '*', '+', '-'};
+
+    public static boolean isNumerical(String input) {
+        boolean isNumerical = true;
+        for (int i = 0; i < input.length(); i++) {
+            boolean found = false;
+            char charAtPos = input.charAt(i);
+
+            for (int j = 0; j < NUMBERS.length; j++) {
+                if (charAtPos == NUMBERS[j])
+                    found = true;
+            }
+
+            if (!found) {
+                isNumerical = false;
+                break;
+            }
+        }
+
+        return isNumerical;
+    }
+
+    public static boolean isConstant(String input){
+        boolean isNumerical = true;
+        for (int i = 0; i < input.length(); i++) {
+            boolean found = false;
+            char charAtPos = input.charAt(i);
+
+            for (int j = 0; j < NUMBERS.length; j++) {
+                if (charAtPos == NUMBERS[j])
+                    found = true;
+            }
+
+            for (int j = 0; j < OPERATIONS.length; j++) {
+                if (charAtPos == OPERATIONS[j])
+                    found = true;
+            }
+
+            if (!found) {
+                isNumerical = false;
+                break;
+            }
+        }
+
+        return isNumerical;
+    }
+
+    public static double result(String input){
+        String processed = input.replace(" ", "");
+
+        processed = "(" + processed + ")";
+
+        //#region Check if any incorrect symbols are present.
+        boolean isCorrect = true;
+        for (int i = 0; i < processed.length(); i++) {
+            boolean found = false;
+            char charAtPos = processed.charAt(i);
+
+            for (int j = 0; j < NUMBERS.length; j++) {
+                if (charAtPos == NUMBERS[j])
+                    found = true;
+            }
+            for (int j = 0; j < OPERATIONS.length; j++) {
+                if (charAtPos == OPERATIONS[j])
+                    found = true;
+            }
+
+            if (!found) {
+                isCorrect = false;
+                break;
+            }
+        }
+
+        if (!isCorrect){
+            System.err.println("Incorrect String!");
+            return 0;
+        }
+        //#endregion
+
+        //#region Split by operators
+        List<String> separated = new ArrayList<String>();
+
+        int start = 0;
+        for (int i = 0; i < processed.length(); i++) {
+            char charAtPos = processed.charAt(i);
+
+            if (i == processed.length()-1) {
+                if (charAtPos != '(' && charAtPos != ')')
+                    separated.add(processed.substring(start));
+                else {
+                    if (start != i)
+                        separated.add(processed.substring(start, i));
+                    separated.add(Character.toString(charAtPos));
+                }
+                break;
+            }
+
+            boolean found = false;
+
+            for (int j = 0; j < OPERATIONS.length; j++) {
+                if (charAtPos == OPERATIONS[j])
+                    found = true;
+            }
+
+            if (found){
+                if (charAtPos != '(' && charAtPos != ')'){
+                    separated.add(processed.substring(start, i));
+                    separated.add(processed.substring(i, i+1));
+                    start = i+1;
+                }
+                else {
+                    if (start != i)
+                        separated.add(processed.substring(start, i));
+                    separated.add(Character.toString(charAtPos));
+                    start = i+1;
+                }
+            }
+        }
+
+        //#endregion
+
+        //#region Tokenize
+        String[] sepArr = separated.toArray(new String[0]);
+
+        Token[] tokens = new Token[sepArr.length];
+
+        for (int i = 0; i < sepArr.length; i++) {
+            if (isNumerical(sepArr[i])){
+                tokens[i] = new Token(Double.parseDouble(sepArr[i]), 0);
+            }
+            else {
+                int operatorId = 0;
+                for (int j = 0; j < OPERATIONS.length; j++) {
+                    if (sepArr[i].charAt(0) == OPERATIONS[j]){
+                        operatorId = j+1;
+                        break;
+                    }
+                }
+                tokens[i] = new Token(0, operatorId);
+            }
+        }
+
+
+        //#endregion
+
+        // List in reverse order
+        List<Token> tokenList = new ArrayList<>();
+        for (int t = tokens.length-1; t > -1; t--) {
+            tokenList.add(tokens[t]);
+        }
+
+        while (true) {
+
+            int maxDepth = 0;
+            int startParenthesis = 0;
+            int endParenthesis = 0;
+
+            int depth = 0;
+
+            // Find 'deepest' parenthesis.
+            for (int t = tokenList.size() - 1; t > -1; t--) {
+                Token token = tokenList.get(t);
+
+                if (token.type() == OPENED){
+                    depth += 1;
+                    if (depth > maxDepth) {
+                        maxDepth = depth;
+                        startParenthesis = t;
+                    }
+                }
+                else if (token.type() == CLOSED){
+                    depth -= 1;
+                }
+            }
+
+            // Done.
+            if (maxDepth == 0) break;
+            else {
+                for (int t = startParenthesis; t > -1; t--) {
+                    Token token = tokenList.get(t);
+
+                    if (token.type() == CLOSED){
+                        endParenthesis = t;
+                        break;
+                    }
+                }
+
+                List<Token> sublist = tokenList.subList(endParenthesis+1, startParenthesis);
+
+                Token result = execute(sublist);
+
+                for (int t = endParenthesis; t < startParenthesis; t++) {
+                    Token token = tokenList.get(t);
+
+                    if (token.type() == OPENED){
+                        startParenthesis = t;
+                    }
+                }
+
+                for (int t = startParenthesis; t > endParenthesis-1; t--) {
+                    tokenList.remove(t);
+                }
+
+                tokenList.add(endParenthesis, result);
+            }
+        }
+
+        return tokenList.get(0).value();
+    }
+
+    public static double getValue(String input) {
+        input = "(" + input + ")";
+
+        return result(input);
+    }
+
+    public static Token execute(List<Token> tokenList){
+        for (int o = 1; o < OPERATIONS.length + 1; o++) {
+            for (int t = tokenList.size()-1; t > -1; t--) {
+                Token token = tokenList.get(t);
+
+                if (token.type() == o){
+                    Token left = tokenList.get(t+1);
+                    Token right = tokenList.get(t-1);
+
+                    tokenList.set(t, operate(token, left, right));
+
+                    tokenList.remove(t+1);
+                    tokenList.remove(t-1);
+
+                    t--;
+                }
+            }
+        }
+
+        return tokenList.get(0);
+    }
+
+    public static Token operate(Token operation, Token left, Token right){
+        switch (operation.type()){
+            case 3: return new Token(Math.pow(left.value(), right.value()), 0);
+            case 4: return new Token(left.value() / right.value(), 0);
+            case 5: return new Token(left.value() * right.value(), 0);
+            case 6: return new Token(left.value() + right.value(), 0);
+            case 7: return new Token(left.value() - right.value(), 0);
+            default:
+                System.err.println("Unknown Type!");
+                return new Token(0, 0);
+        }
+    }
