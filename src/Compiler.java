@@ -20,10 +20,29 @@ public class Compiler {
         }
     }
 
+    public static final String[] BUILT_IN_FUNCTION_NAMES = new String[] {
+
+    };
+
+    public static final String[] BUILT_IN_FUNCTION_ARG_AMOUNT = new String[] {
+
+    };
+
     public List<String> functionNames = new ArrayList<>();
+    public List<Integer> functionArgumentAmounts = new ArrayList<>();
 
     public Node nodeFromData(String operation, List<Node> children) {
         Node node = new Node(new NodeValue(OPType.fromString(operation)));
+
+        node.children = children;
+
+        return node;
+    }
+
+    public Node nodeFromData(List<Node> children, String function) {
+        Node node = new Node(new NodeValue(OPType.FUNCTION_CALL));
+
+        node.function = function;
 
         node.children = children;
 
@@ -85,41 +104,44 @@ public class Compiler {
         for (Variable temp : temporaryVariables)
             temp.memoryPosition = currentId++;
 
+        System.out.printf("%d temporary variables.%n", currentId);
+
+        for (Variable var : constants) {
+            var.memoryPosition = currentId++;
+        }
+
         for (Variable var : variables) {
             var.memoryPosition = currentId++;
         }
 
+        System.out.println("\nConstants:");
+        for (int i = 0; i < constants.size(); i++) {
+            System.out.printf("%f : %d%n", constantValues.get(i), constants.get(i).memoryPosition);
+        }
+
+        System.out.println("\nVariables:");
         for (int i = 0; i < variables.size(); i++) {
             System.out.printf("%s : %d%n", names.get(i), variables.get(i).memoryPosition);
         }
     }
 
+    // Not the real main, just test
     public static void main(String[] args) {
         Compiler compiler = new Compiler();
 
-        // Get variables x, y, z
-        Variable x = compiler.get("x");
-        Variable y = compiler.get("y");
-        Variable z = compiler.get("z");
-
-        // Build tree: (x + y) + z
-        Node addXY = compiler.new Node(compiler.new NodeValue(OPType.ADD));
-        addXY.addChild(compiler.new Node(compiler.new NodeValue(x)));
-        addXY.addChild(compiler.new Node(compiler.new NodeValue(y)));
-
-        Node addXYZ = compiler.new Node(compiler.new NodeValue(OPType.ADD));
-        addXYZ.addChild(addXY);
-        addXYZ.addChild(compiler.new Node(compiler.new NodeValue(z)));
-
-        // Create a result variable
         Variable result = compiler.get("result");
 
+        Node node = ArithmeticCompiler.compile(compiler, "1?1");
+
+        System.out.println(node + "\n");
+
         // Compile root node
-        List<AssemblyOperation> operations = compiler.compileRoot(addXYZ, result);
+        List<AssemblyOperation> operations = compiler.compileRoot(node, result);
 
         // Assign memory positions for all vars
         compiler.updateMemoryRegs();
 
+        System.out.println("\n'Assembly' operations:");
         // Print assembly
         for (AssemblyOperation op : operations) {
             System.out.println(op);
@@ -143,13 +165,23 @@ public class Compiler {
 
     public enum Type {
         COPY,
-        ADD
+        ADD,
+        SUBTRACT,
+        MULTIPLY,
+        DIVIDE,
+        MOD,
+        POWER,
+        AND,
+        OR,
+        IS_EQUAL,
+        IS_GREATER,
     }
+
 
     private int expectedArguments(OPType t) {
         return switch (t) {
             case POWER, MULTIPLY, DIVIDE, MOD, ADD, SUBTRACT, AND, OR, IS_EQUAL, IS_GREATER, IS_SMALLER -> 2;
-            case FUNCTION_CALL -> -1;
+            case FUNCTION_CALL, BUILT_IN_FUNC_CALL -> -1;
         };
     }
 
@@ -165,7 +197,8 @@ public class Compiler {
         IS_EQUAL("?"),
         IS_GREATER(">"),
         IS_SMALLER("<"),
-        FUNCTION_CALL("\0");
+        FUNCTION_CALL("\0"),
+        BUILT_IN_FUNC_CALL("\0");
 
         private final String symbol;
 
@@ -188,7 +221,7 @@ public class Compiler {
     }
 
 
-    private String typeToString(Type type){
+    private String typeToString(Type type) {
         switch (type) {
             case COPY -> {
                 return "copy";
@@ -196,13 +229,43 @@ public class Compiler {
             case ADD -> {
                 return "add";
             }
+            case SUBTRACT -> {
+                return "subtract";
+            }
+            case MULTIPLY -> {
+                return "multiply";
+            }
+            case DIVIDE -> {
+                return "divide";
+            }
+            case MOD -> {
+                return "mod";
+            }
+            case POWER -> {
+                return "pow";
+            }
+            case AND -> {
+                return "and";
+            }
+            case OR -> {
+                return "or";
+            }
+            case IS_EQUAL -> {
+                return "equal";
+            }
+            case IS_GREATER -> {
+                return "greaterThan";
+            }
         }
         throw new CompilationException("Unknown operation type :(, " + type);
     }
 
+
     class AssemblyOperation {
         Type type;
         Variable[] vars;
+
+        public String header = null;
 
         @Override
         public String toString() {
@@ -268,6 +331,8 @@ public class Compiler {
         NodeValue value;
         List<Node> children = new ArrayList<>();
 
+        public String function;
+
         Node(NodeValue value) {
             this.value = value;
         }
@@ -288,7 +353,12 @@ public class Compiler {
             if (value.isVariable()) {
                 sb.append(prefix).append(isTail ? "└── " : "├── ").append(value.getVariable().toString()).append("\n");
             } else {
-                sb.append(prefix).append(isTail ? "└── " : "├── ").append(value.getOpType().toString()).append("\n");
+                if (value.opType != OPType.FUNCTION_CALL) {
+                    sb.append(prefix).append(isTail ? "└── " : "├── ").append(value.getOpType().toString()).append("\n");
+                }
+                else {
+                    sb.append(prefix).append(isTail ? "└── " : "├── ").append(value.getOpType().toString()).append(": ").append(function).append("\n");
+                }
             }
 
             // Print children recursively
@@ -327,21 +397,46 @@ public class Compiler {
             for (Node child : node.children)
                 result.addAll(compile(child));
 
-            switch (node.value.getOpType()){
-                case ADD:
-                    if (node.children.size() != expectedArguments(OPType.ADD))
-                        throw new CompilationException("Adding more then two numbers together!");
 
+            switch (node.value.getOpType()){
+                // Default operations with two inputs
+                case POWER, MULTIPLY, DIVIDE, MOD, ADD, SUBTRACT, AND, OR, IS_EQUAL, IS_GREATER, IS_SMALLER:
+                    if (node.children.size() != expectedArguments(OPType.ADD)) // Use add, cause all of these use 2.
+                        throw new CompilationException("Adding more then two numbers together!");
                     Variable a = node.children.get(0).value.getVariable();
                     Variable b = node.children.get(1).value.getVariable();
-                    result.add(new AssemblyOperation(Type.ADD, new Variable[] {a, b, a}));
+
+                    // Is smaller is just a flipped is bigger :)
+                    if (node.value.opType == OPType.IS_SMALLER)
+                        result.add(new AssemblyOperation(fromOP(node.value.getOpType()), new Variable[] {b, a, a}));
+                    else
+                        result.add(new AssemblyOperation(fromOP(node.value.getOpType()), new Variable[] {a, b, a}));
 
                     node.value.setVariable(a);
 
                     break;
+                default:
+                    throw new CompilationException("Unknown Operation!");
             }
         }
 
         return result;
     }
+
+    public Type fromOP(OPType opType) {
+        return switch (opType) {
+            case POWER     -> Type.POWER;
+            case MULTIPLY  -> Type.MULTIPLY;
+            case DIVIDE    -> Type.DIVIDE;
+            case MOD       -> Type.MOD;
+            case ADD       -> Type.ADD;
+            case SUBTRACT  -> Type.SUBTRACT;
+            case AND       -> Type.AND;
+            case OR        -> Type.OR;
+            case IS_EQUAL  -> Type.IS_EQUAL;
+            case IS_GREATER, IS_SMALLER -> Type.IS_GREATER;
+            default        -> throw new IllegalArgumentException("Unsupported OPType: " + opType);
+        };
+    }
+
 }
