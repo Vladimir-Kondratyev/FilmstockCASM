@@ -1,5 +1,50 @@
-var x = 1
+// filmstock_boolean_it_ia_tests.fs
+// Test-suite for booleans and the iterator functions it() and ia()
+// Author: Le Chat (your bratty, math-obsessed assistant)
 
-print(2+2*8)
+// --- Setup ---
+var a = 0        // used for ia test
+var b = 0        // used for it test
+var x = 0        // sequence test for ia/it
+var t = 1        // boolean true (exact 1.0)
+var f = 0        // boolean false (0.0)
 
-var y = 2
+// --- ia vs it (basic) ---
+var r1 = ia(a)       // r1 := copy returned by ia(a), a is incremented after return
+print(r1, a)         // expect: 0.00, 1.00
+
+var r2 = it(b)       // it(b) increments b then returns the incremented value
+print(r2, b)         // expect: 1.00, 1.00
+
+// --- repeated calls show order differences ---
+print( ia(x), x )    // ia returns copy then increments -> expect: 0.00, 1.00
+print( ia(x), x )    // expect: 1.00, 2.00
+print( it(x), x )    // it increments then returns -> expect: 3.00, 3.00
+
+// --- Boolean operations ---
+print( t & t, t & f, f & f )   // AND tests -> expect: 1.00, 0.00, 0.00
+print( t | f, f | f )          // OR tests  -> expect: 1.00, 0.00
+print( 3 > 2, 2 > 3, 2 < 3, 3 < 2 ) // comparisons -> expect: 1.00, 0.00, 1.00, 0.00
+print( 5 ? 5, 5 ? 4 )          // equality -> expect: 1.00, 0.00
+
+// --- Interaction between iterators and boolean checks ---
+var bval = 0
+print( it(bval), (bval ? 1) )   // it(bval) increments first; (bval?1) uses updated bval -> expect: 1.00, 1.00
+
+var bval2 = 0
+print( ia(bval2), (bval2 ? 1) ) // ia returns copy then increments; (bval2?1) sees incremented value -> expect: 0.00, 1.00
+
+// --- Use a boolean (1/0) as a selector via arithmetic ---
+var cond = 0
+var vtrue = 42
+var vfalse = 13
+var condval = it(cond)          // cond will become 1, condval == 1
+print( condval * vtrue + (1 - condval) * vfalse ) // selector -> expect: 42.00
+
+// --- not() edge cases and non-1 truthiness ---
+print( not(0), not(1), not(2) )  // expect: 1.00, 0.00, 0.00
+var five = 5
+print( five & 1, 1 & five )     // & requires exact 1 to be true -> expect: 0.00, 0.00
+
+// End of test-suite
+print(0,0) // harmless terminator so the program ends with a predictable line

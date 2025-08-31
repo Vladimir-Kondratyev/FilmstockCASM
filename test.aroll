@@ -1,5 +1,206 @@
-length = 3
-set 0 18.0
-set 1 1.0
-set 2 2.0
+length = 33
+set 8 0.0
+set 9 1.0
+set 10 44.0
+set 11 32.0
+set 12 10.0
+set 13 3.0
+set 14 2.0
+set 15 5.0
+set 16 4.0
+set 17 42.0
+set 18 13.0
+copy 8 0
+copy 0 19
+copy 8 0
+copy 0 20
+copy 8 0
+copy 0 21
+copy 9 0
+copy 0 22
+copy 8 0
+copy 0 23
+copy 19 0
+iterate 19
+copy 0 24
+copy 24 0
+copy 19 1
 printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 1 1
+print 12 1
+iterate 20
+copy 20 0
+copy 0 25
+copy 25 0
+copy 20 1
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 1 1
+print 12 1
+copy 21 0
+iterate 21
+copy 21 1
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 1 1
+print 12 1
+copy 21 0
+iterate 21
+copy 21 1
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 1 1
+print 12 1
+iterate 21
+copy 21 0
+copy 21 1
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 1 1
+print 12 1
+copy 22 0
+copy 22 1
+and 0 1 0
+copy 22 2
+copy 23 3
+and 2 3 2
+copy 23 4
+copy 23 5
+and 4 5 4
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 2 1
+print 10 1
+print 11 1
+printNumbers 4 1
+print 12 1
+copy 22 0
+copy 23 1
+or 0 1 0
+copy 23 2
+copy 23 3
+or 2 3 2
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 2 1
+print 12 1
+copy 13 0
+copy 14 1
+greaterThan 0 1 0
+copy 14 2
+copy 13 3
+greaterThan 2 3 2
+copy 14 4
+copy 13 5
+greaterThan 5 4 4
+copy 13 6
+copy 14 7
+greaterThan 7 6 6
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 2 1
+print 10 1
+print 11 1
+printNumbers 4 1
+print 10 1
+print 11 1
+printNumbers 6 1
+print 12 1
+copy 15 0
+copy 15 1
+equal 0 1 0
+copy 15 2
+copy 16 3
+equal 2 3 2
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 2 1
+print 12 1
+copy 8 0
+copy 0 26
+iterate 26
+copy 26 0
+copy 26 1
+copy 9 2
+equal 1 2 1
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 1 1
+print 12 1
+copy 8 0
+copy 0 27
+copy 27 0
+iterate 27
+copy 27 1
+copy 9 2
+equal 1 2 1
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 1 1
+print 12 1
+copy 8 0
+copy 0 28
+copy 17 0
+copy 0 29
+copy 18 0
+copy 0 30
+iterate 28
+copy 28 0
+copy 0 31
+copy 31 0
+copy 29 1
+multiply 0 1 0
+copy 9 2
+copy 31 3
+subtract 2 3 2
+copy 30 4
+multiply 2 4 2
+add 0 2 0
+printNumbers 0 1
+print 12 1
+copy 8 0
+not 0 0
+copy 9 1
+not 1 1
+copy 14 2
+not 2 2
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 1 1
+print 10 1
+print 11 1
+printNumbers 2 1
+print 12 1
+copy 15 0
+copy 0 32
+copy 32 0
+copy 9 1
+and 0 1 0
+copy 9 2
+copy 32 3
+and 2 3 2
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 2 1
+print 12 1
+copy 8 0
+copy 8 1
+printNumbers 0 1
+print 10 1
+print 11 1
+printNumbers 1 1
+print 12 1

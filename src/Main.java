@@ -4,7 +4,10 @@ import java.util.Arrays;
 public class Main {
     public static void main(String[] args) throws IOException {
         // ArithmeticCompiler.result("2 ^ 6 * 2 + 2 - 10 ^ 3");
-        // Assembler.assemble("assemble.aroll", "test.roll");
+
+        Compiler compiler = new Compiler();
+
+        compiler.compile("test.script", "test.aroll");
 
         Assembler.assemble("test.aroll", "test.roll");
     }

@@ -227,12 +227,12 @@ public class ArithmeticCompiler {
                     String sub = fixedParenthesis.substring(parenthesisStart.get(i)+1, parenthesisEnd.get(i));
 
                     if (!sub.isEmpty()) {
-                        String[] functionArguments = sub.split(",");
+                        List<String> functionArguments = getFunctionArguments(sub);
 
-                        Compiler.Node[] argumentNodes = new Compiler.Node[functionArguments.length];
+                        Compiler.Node[] argumentNodes = new Compiler.Node[functionArguments.size()];
 
-                        for (int j = 0; j < functionArguments.length; j++) {
-                            argumentNodes[j] = stringToNode(compiler, functionArguments[j], false);
+                        for (int j = 0; j < functionArguments.size(); j++) {
+                            argumentNodes[j] = stringToNode(compiler, functionArguments.get(j), false);
                         }
 
                         Compiler.Node functionCallNode = compiler.nodeFromData(List.of(argumentNodes), f);
@@ -354,5 +354,40 @@ public class ArithmeticCompiler {
         }
 
         return (Compiler.Node) tokens.get(0);
+    }
+
+    private static List<String> getFunctionArguments(String sub) {
+        List<String> functionArguments = new ArrayList<>();
+
+        int d = 0;
+        int s = 0;
+
+        for (int j = 0; j < sub.length(); j++) {
+            switch (sub.charAt(j)){
+                case '(':
+                    d++;
+                    break;
+                case ')':
+                    d--;
+                    break;
+            }
+
+            if (d == 0) {
+                if (sub.charAt(j) == ','){
+                    functionArguments.add(
+                            sub.substring(s, j)
+                    );
+                    j++;
+                    s = j;
+                }
+            }
+
+            if (j == sub.length()-1) {
+                functionArguments.add(
+                        sub.substring(s, j+1)
+                );
+            }
+        }
+        return functionArguments;
     }
 }
