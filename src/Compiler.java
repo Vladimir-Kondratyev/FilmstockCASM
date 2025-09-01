@@ -51,13 +51,16 @@ public class Compiler {
         String cInput = input;
         if (input.contains("=")) {
             String[] separated = input.split("=");
-            separated[0] = separated[0].replace(" ", "");
 
-            if (doesVarExist(separated[0]))
-                returnVar = get(separated[0]);
-            else
-                throw new CompilationException(String.format("Line: %d%nVariable %s does not exist!", line, separated[0]));
-            cInput = separated[1].replace(" ", "");
+            if (input.charAt(separated[0].length()-1) != '\\') {
+                separated[0] = separated[0].replace(" ", "");
+
+                if (doesVarExist(separated[0]))
+                    returnVar = get(separated[0]);
+                else
+                    throw new CompilationException(String.format("Line: %d%nVariable %s does not exist!", line, separated[0]));
+                cInput = separated[1].replace(" ", "");
+            }
         }
 
         // Compile the whole into a tree.
@@ -97,6 +100,7 @@ public class Compiler {
 
         for (String line : clean) {
             dropTemporary();
+
             operations.addAll(compileLine(line, 0));
         }
 
@@ -139,7 +143,12 @@ public class Compiler {
             "sqrt",
             "print",
             "ascii",
-            "ia" // Iterate After
+            "ia", // Iterate After
+            "end",
+            "floor",
+            "round",
+            "ceil",
+            "time"
     };
 
     public static final int[] BUILT_IN_FUNCTION_ARG_AMOUNT = new int[] {
@@ -157,7 +166,12 @@ public class Compiler {
             1, // "sqrt"
             -1,// "print" = special case
             -1,// "ascii" = special case
-            1  // "ia" // Iterate After
+            1,  // "ia" // Iterate After
+            1, // end Code
+            1,  //"floor",
+            1,  //"round",
+            1,  //"ceil",
+            0  //"getTime"
     };
 
     public List<String> functionNames = new ArrayList<>();
@@ -306,51 +320,13 @@ public class Compiler {
         COPY_FROM,
         POINTER,
         POSITION,
-        JUMP
+        JUMP,
+        END,
+        FLOOR,
+        ROUND,
+        CEIL,
+        TIME
     }
-
-    private int expectedArguments(OPType t) {
-        return switch (t) {
-            case POWER, MULTIPLY, DIVIDE, MOD, ADD, SUBTRACT, AND, OR, IS_EQUAL, IS_GREATER, IS_SMALLER -> 2;
-            case FUNCTION_CALL, BUILT_IN_FUNC_CALL -> -1;
-        };
-    }
-
-    public enum OPType {
-        POWER("^"),
-        MULTIPLY("*"),
-        DIVIDE("/"),
-        MOD("%"),
-        ADD("+"),
-        SUBTRACT("-"),
-        AND("&"),
-        OR("|"),
-        IS_EQUAL("?"),
-        IS_GREATER(">"),
-        IS_SMALLER("<"),
-        FUNCTION_CALL("\0"),
-        BUILT_IN_FUNC_CALL("\0");
-
-        private final String symbol;
-
-        OPType(String symbol) {
-            this.symbol = symbol;
-        }
-
-        public String getSymbol() {
-            return symbol;
-        }
-
-        public static OPType fromString(String s) {
-            for (OPType op : OPType.values()) {
-                if (op.symbol.equals(s)) {
-                    return op;
-                }
-            }
-            throw new IllegalArgumentException("Unknown operation: " + s);
-        }
-    }
-
 
     private String typeToString(Type type) {
         switch (type) {
@@ -432,11 +408,66 @@ public class Compiler {
             case JUMP -> {
                 return "jump";
             }
+            case END -> {
+                return "end";
+            }
+            case FLOOR -> {
+                return "floor";
+            }
+            case ROUND -> {
+                return "round";
+            }
+            case CEIL -> {
+                return "ceil";
+            }
+            case TIME -> {
+                return "time";
+            }
         }
         throw new CompilationException("Unknown operation type :(, " + type);
     }
 
+    private int expectedArguments(OPType t) {
+        return switch (t) {
+            case POWER, MULTIPLY, DIVIDE, MOD, ADD, SUBTRACT, AND, OR, IS_EQUAL, IS_GREATER, IS_SMALLER -> 2;
+            case FUNCTION_CALL, BUILT_IN_FUNC_CALL -> -1;
+        };
+    }
 
+    public enum OPType {
+        POWER("^"),
+        MULTIPLY("*"),
+        DIVIDE("/"),
+        MOD("%"),
+        ADD("+"),
+        SUBTRACT("-"),
+        AND("&"),
+        OR("|"),
+        IS_EQUAL("?"),
+        IS_GREATER(">"),
+        IS_SMALLER("<"),
+        FUNCTION_CALL("\0"),
+        BUILT_IN_FUNC_CALL("\0");
+
+        private final String symbol;
+
+        OPType(String symbol) {
+            this.symbol = symbol;
+        }
+
+        public String getSymbol() {
+            return symbol;
+        }
+
+        public static OPType fromString(String s) {
+            for (OPType op : OPType.values()) {
+                if (op.symbol.equals(s)) {
+                    return op;
+                }
+            }
+            throw new IllegalArgumentException("Unknown operation: " + s);
+        }
+    }
 
     class AssemblyOperation {
         Type type;
@@ -591,7 +622,6 @@ public class Compiler {
             for (Node child : node.children)
                 result.addAll(compile(child));
 
-
             switch (node.value.getOpType()){
                 // Default operations with two inputs
                 case POWER, MULTIPLY, DIVIDE, MOD, ADD, SUBTRACT, AND, OR, IS_EQUAL, IS_GREATER, IS_SMALLER:
@@ -634,9 +664,11 @@ public class Compiler {
                             throw new CompilationException(String.format("Expected %d but got %d arguments for the built-in function %s!",
                                     BUILT_IN_FUNCTION_ARG_AMOUNT[builtInFunction], arguments.length, functionName));
 
-                        result.addAll(getAssemblyOfBuiltIn(builtInFunction, (arguments.length == 0) ? new Variable[] {null} : arguments));
+                        if (arguments.length == 0) {
+                            arguments = new Variable[] {getTemporary()};
+                        }
 
-                        System.out.println(result);
+                        result.addAll(getAssemblyOfBuiltIn(builtInFunction, arguments));
 
                         node.value.setVariable(arguments[0]); // 0 is the return field for built-in functions.
                     }
@@ -656,7 +688,7 @@ public class Compiler {
         List<AssemblyOperation> result = new ArrayList<>();
 
         switch (functionId){
-            case 0, 1, 2, 3, 4, 7: // sin, cos, tan, asin, acos, not
+            case 0, 1, 2, 3, 4, 7, 16, 17, 18: // sin, cos, tan, asin, acos, not, floor, round, ceil
                 result.add(new AssemblyOperation(fromBuiltInId(functionId), new Variable[] {arguments[0], arguments[0]}));
                 break;
             case 5: // atan2
@@ -699,10 +731,9 @@ public class Compiler {
                 result.add(new AssemblyOperation(Type.PRINT, new Variable[]{getConstant(ASCII.NEW_LINE)}));
                 break;
             case 13:
-                // Print the chars and ending with a new line.
+                // Print the chars and ending with NO new line!
                 for (Variable argument : arguments)
                     result.add(new AssemblyOperation(Type.PRINT, new Variable[]{argument}));
-                result.add(new AssemblyOperation(Type.PRINT, new Variable[]{getConstant(ASCII.NEW_LINE)}));
                 break;
             case 14: // Iterate After
                 Variable tempIterationAfterReturn = getTemporary();
@@ -712,6 +743,12 @@ public class Compiler {
                 result.add(new AssemblyOperation(Type.ITERATE, new Variable[] {iterateAfter}));
 
                 arguments[0] = tempIterationAfterReturn;
+                break;
+            case 15: // End
+                result.add(new AssemblyOperation(Type.END, new Variable[] {arguments[0]}));
+                break;
+            case 19: // Time
+                result.add(new AssemblyOperation(Type.TIME, new Variable[] {arguments[0]}));
                 break;
             default:
                 throw new CompilationException("Unknown built-in function with id: " + functionId);
@@ -736,6 +773,10 @@ public class Compiler {
             case 11 -> Type.POWER; // "sqrt"
             case 12 -> Type.PRINT_NUMBERS;
             case 13 -> Type.PRINT; // "ascii"
+            case 16 -> Type.FLOOR;
+            case 17 -> Type.ROUND;
+            case 18 -> Type.CEIL;
+
             default -> throw new CompilationException("Unknown built in function id: " + id);
         };
     }

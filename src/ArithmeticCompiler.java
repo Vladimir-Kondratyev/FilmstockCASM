@@ -75,12 +75,132 @@ public class ArithmeticCompiler {
     }
 
     private static Compiler.Node stringToNode(Compiler compiler, String input, boolean isHead) {
-        String stripped = input.replace(" ", "");
+        String stripped = input.replace("--", "+");
 
-        stripped = stripped.replace("--", "+");
-
-        //#region Deal with unary minus
+        //#region Deal with unary minus and 'a' and "Text"
         if (isHead) {
+            //#region Double Quote
+            List<Integer> doubleQuotes = new ArrayList<>();
+
+            for (int i = 0; i < stripped.length(); i++) {
+                if (stripped.charAt(i) == '"'){
+                    if (i > 0) {
+                        if (stripped.charAt(i-1) != '\\'){
+                            doubleQuotes.add(i);
+                        }
+                    }
+                    else {
+                        doubleQuotes.add(i);
+                    }
+                }
+            }
+
+            if (doubleQuotes.size() % 2 != 0)
+                throw new CompilationException("Double Quote mismatch: " + input);
+
+            // Replace "AAAA" with 65, 65, 65, 65
+            for (int q = doubleQuotes.size()-1; q > -1; q-=2) {
+                int start = doubleQuotes.get(q-1);
+                int end = doubleQuotes.get(q);
+
+                String s = stripped.substring(start+1, end);
+
+                StringBuilder sugared = new StringBuilder();
+
+                for (int i = 0; i < s.length(); i++) {
+                    if (s.charAt(i) == '\\' && i < s.length() -1){
+                        if (s.charAt(i+1) == '"') {
+                            sugared.append(ASCII.toASCII('"'));
+                            i++;
+
+                            if (i < s.length() - 1)
+                                sugared.append(",");
+
+                            continue;
+                        }
+                        else if (s.charAt(i+1) == 'n'){
+                            sugared.append(ASCII.toASCII('\n'));
+                            i++;
+
+                            if (i < s.length() - 1)
+                                sugared.append(",");
+
+                            continue;
+                        }
+                        else if (s.charAt(i+1) == '\\'){
+                            sugared.append(ASCII.toASCII('\\'));
+                            i++;
+
+                            if (i < s.length() - 1)
+                                sugared.append(",");
+
+                            continue;
+                        }
+                        else if (s.charAt(i+1) == '='){
+                            sugared.append(ASCII.toASCII('='));
+                            i++;
+
+                            if (i < s.length() - 1)
+                                sugared.append(",");
+
+                            continue;
+                        }
+                    }
+                    sugared.append(ASCII.toASCII(s.charAt(i)));
+                    if (i < s.length() - 1)
+                        sugared.append(",");
+                }
+
+                stripped = stripped.substring(0, start) + sugared + stripped.substring(end+1);
+            }
+
+            //#endregion
+
+            //#region Single Quote
+            int singleQuote = getSingleQuote(input, stripped);
+
+            for (int i = 0; i < singleQuote/2; i++) {
+                for (int c = 0; c < stripped.length(); c++) {
+                    if (stripped.charAt(c) == '\'') {
+                        if (stripped.charAt(c+1) == '\\'){
+                            if (stripped.charAt(c+2) == '\'') {
+                                int asciiNum = ASCII.toASCII('\'');
+
+                                stripped = stripped.substring(0, c) + asciiNum + stripped.substring(c+4);
+                                break;
+                            }
+                            else if (stripped.charAt(c+2) == 'n') {
+                                int asciiNum = ASCII.toASCII('\n');
+
+                                stripped = stripped.substring(0, c) + asciiNum + stripped.substring(c+4);
+                                break;
+                            }
+                            else if (stripped.charAt(c+2) == '\\') {
+                                int asciiNum = ASCII.toASCII('\\');
+
+                                stripped = stripped.substring(0, c) + asciiNum + stripped.substring(c+4);
+                                break;
+                            }
+                            else if (stripped.charAt(c+2) == '=') {
+                                int asciiNum = ASCII.toASCII('=');
+
+                                stripped = stripped.substring(0, c) + asciiNum + stripped.substring(c+4);
+                                break;
+                            }
+                        }
+                        else {
+                            int asciiNum = ASCII.toASCII(stripped.charAt(c+1));
+
+                            stripped = stripped.substring(0, c) + asciiNum + stripped.substring(c+3);
+                            break;
+                        }
+                    }
+                }
+            }s
+
+            stripped = stripped.replace(" ", "");
+            //#endregion
+
             int unaryMinusAmount = 0;
 
             for (int i = 0; i < stripped.length(); i++) {
@@ -354,6 +474,27 @@ public class ArithmeticCompiler {
         }
 
         return (Compiler.Node) tokens.get(0);
+    }
+
+    private static int getSingleQuote(String input, String stripped) {
+        int singleQuote = 0;
+
+        for (int i = 0; i < stripped.length(); i++) {
+            if (stripped.charAt(i) == '\''){
+                if (i > 1){
+                    if (stripped.charAt(i-1) != '\\'){
+                        singleQuote++;
+                    }
+                }
+                else {
+                    singleQuote++;
+                }
+            }
+        }
+
+        if (singleQuote % 2 != 0)
+            throw new CompilationException("Single Quote mismatch: " + input);
+        return singleQuote;
     }
 
     private static List<String> getFunctionArguments(String sub) {

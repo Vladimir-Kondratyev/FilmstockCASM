@@ -34,7 +34,12 @@ public class Assembler {
             "copyFrom",       // 23
             "pointer",       // 24
             "position",       // 25
-            "jump"           // 26
+            "jump",           // 26
+            "end",           // 27
+            "floor",         // 28
+            "round",        // 29
+            "ceil",         // 30
+            "time",         // 31
     };
 
     public static final int[] OPERATION_LENGTHS = {
@@ -64,7 +69,12 @@ public class Assembler {
             2,  // copyFrom(p1, p2)
             2,  // pointer(p1, p2)
             1,  // position(p1)
-            1   // jump(p1)
+            1,   // jump(p1)
+            1,   // end(exitCode)
+            2,     //"floor"
+            2,     //"round"
+            2,     //"ceil"
+            1     //"time"
     };
 
     public static void assemble(String assemblyPath, String outputPath) throws IOException {
@@ -88,6 +98,8 @@ public class Assembler {
     static int margin = 64;
 
     public static byte[] intToBytes(int value) {
+        //System.out.println(value);
+
         return ByteBuffer.allocate(4)
                 .order(ByteOrder.LITTLE_ENDIAN)
                 .putInt(value)
