@@ -1,9 +1,1 @@
-ascii("Let's test out the \"double\" quotes!\n")
-
-ascii("And for my final trick, let's print something using ' sugar!", '\'', '\n')
-
-ascii("I lied >:3 Let's print an \\\" in the end: \"")
-
-ascii("\nOk ok, last thing! We can print even values of functions this way! sin('a') ", '\=', ' ')
-
-print(sin('a'))
+print(1,2,3,4,5,6)

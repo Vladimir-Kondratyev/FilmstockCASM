@@ -196,7 +196,7 @@ public class ArithmeticCompiler {
                         }
                     }
                 }
-            }s
+            }
 
             stripped = stripped.replace(" ", "");
             //#endregion

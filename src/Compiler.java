@@ -1,9 +1,12 @@
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 public class Compiler {
+    private static final String FORBIDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};,";
+
     int length = 0;
 
     int currentTemporaryVar = 0;
@@ -19,6 +22,27 @@ public class Compiler {
         else {
             return temporaryVariables.get(currentTemporaryVar-1);
         }
+    }
+
+    int currentHeader = 0;
+    private List<Variable> headers = new ArrayList<>();
+    private List<Integer> headerOffsets = new ArrayList<>();
+
+    private Variable getHeader(int offset) {
+        Variable newVar = new Variable("Header: " + currentHeader);
+        headers.add(newVar);
+        headerOffsets.add(offset);
+        currentHeader++;
+
+        return newVar;
+    }
+
+    private int getLatestHeaderId() {
+        return currentHeader-1;
+    }
+
+    private int getHeaderOffset(int id) {
+        return headerOffsets.get(id);
     }
 
     public static String[] readFileClean(String path) {
@@ -42,9 +66,7 @@ public class Compiler {
         return clean.toArray(new String[0]);
     }
 
-    public List<AssemblyOperation> compileLine(String input, int line) {
-        Variable returnVar = null;
-
+    public List<AssemblyOperation> compileLine(String input, int line, Variable returnVar) {
         System.out.printf("Compiling line %d: %s.%n", line, input);
 
         // If this is a = statement, separate :)
@@ -84,31 +106,260 @@ public class Compiler {
         return operations;
     }
 
-    public void compile(String inPath, String outPath) {
+    public List<AssemblyOperation> parseIf (List<String> input, List<String> elseLines){
         List<AssemblyOperation> operations = new ArrayList<>();
-        String[] clean = readFileClean(inPath);
 
-        // Allocate variables.
-        for (int i = 0; i < clean.length; i++) {
-            if (clean[i].startsWith("var ")) {
-                clean[i] = clean[i].substring(4);
-                get(clean[i].split("=")[0].replace(" ", ""));
+        // Parse condition
+        String[] separated = input.get(0).split(" ");
+        String[] separatedWithoutIf = Arrays.copyOfRange(separated, 1, separated.length);
+        String joinedNoIf = String.join("", separatedWithoutIf);
+
+        String conditionString = joinedNoIf.split("\\{")[0];
+
+        System.out.println("Condition:");
+        System.out.println(conditionString);
+
+        // Condition
+        Variable condition = getTemporary();
+        operations.addAll(compileLine(conditionString, 0, condition));
+
+        // Create headers
+        Variable ifBodyHeader = getHeader(1);
+        int ifBodyHeaderId = getLatestHeaderId();
+
+        Variable endHeader = getHeader(0);
+        int endHeaderId = getLatestHeaderId();
+
+        // Jump to header of the if body, if the condition was true
+        operations.add(new AssemblyOperation(Type.JUMP_IF, new Variable[] {condition, ifBodyHeader}));
+
+        // Add else Lines
+        operations.addAll(compilePart(elseLines, null));
+        operations.add(new AssemblyOperation(Type.JUMP, new Variable[] {endHeader}));
+
+        // Add header to which we jump if the condition is true
+        operations.get(operations.size()-1).headers.add(ifBodyHeaderId);
+
+        List<String> stringsToExecute = input.subList(2, input.size()-1);
+        operations.addAll(compilePart(stringsToExecute, null));
+
+        // Add header to which we jump if the condition was false
+        operations.get(operations.size()-1).headers.add(endHeaderId);
+        return operations;
+    }
+
+    public List<AssemblyOperation> parseFor (List<String> input) {
+        List<AssemblyOperation> operations = new ArrayList<>();
+
+        String firstLine = input.get(0);
+        String cleanFirst = firstLine.substring(3);
+
+        cleanFirst = cleanFirst.replaceAll(";", " ; ");
+
+        // 0 = Initialization
+        // 1 = Condition
+        // 2 = Update
+        String[] forExpressions = cleanFirst.split(";");
+
+        // Remove unnecessary white spaces (OMORI ahh)
+        for (int i = 0; i < forExpressions.length; i++) {
+            forExpressions[i] = forExpressions[i].strip();
+        }
+
+        // Initialize Headers
+        Variable endHeader = getHeader(1);
+        int endHeaderId = getLatestHeaderId();
+
+        //#region Initialization
+        // Initialize the variable if not already
+        forExpressions[0] = allocate(forExpressions[0]);
+
+        boolean isInitEmpty = forExpressions[0].isEmpty();
+
+        Variable startHeader;
+        int startHeaderId;
+        if (!isInitEmpty) {
+            startHeader = getHeader(1);
+            startHeaderId = getLatestHeaderId();
+
+            // Add initialization lines
+            operations.addAll(compileLine(forExpressions[0], 0, null));
+
+            // Add header after initialization
+            operations.get(operations.size()-1).headers.add(startHeaderId);
+        }
+        else {
+            startHeader = getHeader(0);
+            startHeaderId = getLatestHeaderId();
+        }
+        //#endregion
+
+        //#region Condition
+        // Initialize condition
+        Variable condition = getTemporary();
+
+        // Get the reverse
+        if (!forExpressions[1].isEmpty())
+            forExpressions[1] = "not(" + forExpressions[1] + ")";
+        else {
+            forExpressions[1] = "0";
+        }
+
+        operations.addAll(compileLine(forExpressions[1], 0, condition));
+        // Break operation is what is executed for "break" lines.
+        AssemblyOperation breakOperation = new AssemblyOperation(Type.JUMP, new Variable[] {endHeader});
+        operations.add(new AssemblyOperation(Type.JUMP_IF, new Variable[] {condition, endHeader}));
+
+        if (isInitEmpty)
+            operations.get(0).headers.add(startHeaderId);
+
+        //#endregion
+
+        // Add main part
+        List<String> stringsToExecute = input.subList(2, input.size()-1);
+        operations.addAll(compilePart(stringsToExecute, breakOperation));
+
+        //#region Update
+        if (!forExpressions[2].isEmpty())
+            operations.addAll(compileLine(forExpressions[2], 0, null));
+        //#endregion
+
+        // Add jump to start
+        operations.add(new AssemblyOperation(Type.JUMP, new Variable[] {startHeader}));
+
+        // Add header to the end
+        operations.get(operations.size()-1).headers.add(endHeaderId);
+
+        return operations;
+    }
+
+    public List<AssemblyOperation> compilePart(List<String> clean, AssemblyOperation breakStatement) {
+        List<AssemblyOperation> operations = new ArrayList<>();
+
+        for (int i = 0; i < clean.size(); i++) {
+            dropTemporary();
+            if (clean.get(i).startsWith("if")) {
+                int end = findEndOfStatement(i, clean);
+                int elseEnd = end;
+
+                if (end+1 < clean.size()){
+                    if (clean.get(end+1).startsWith("else")) {
+                        elseEnd = findEndOfStatement(end+1, clean);
+                    }
+                }
+
+                List<String> elseLines = new ArrayList<>();
+                if (elseEnd != end) {
+                    elseLines = clean.subList(end+3,elseEnd);
+                }
+                operations.addAll(parseIf(clean.subList(i, end+1), elseLines));
+
+                i = end + (elseEnd - end);
+            }
+            else if (clean.get(i).startsWith("for")){
+                int end = findEndOfStatement(i, clean);
+
+                operations.addAll(parseFor(clean.subList(i, end+1)));
+
+                i = end;
+            }
+            else {
+                operations.addAll(compileLine(clean.get(i), 0, null));
             }
         }
 
-        System.out.println(variables);
+        return operations;
+    }
 
-        for (String line : clean) {
-            dropTemporary();
+    private int findEndOfStatement(int start, List<String> input) {
+        int found = 0;
+        int depth = 0;
+        int end = -1;
 
-            operations.addAll(compileLine(line, 0));
+        for (int j = start; j < input.size(); j++) {
+            boolean doBreak = false;
+            for (int c = 0; c < input.get(j).length(); c++) {
+                if (input.get(j).charAt(c) == '{'){
+                    found++;
+                    depth++;
+                }
+                if (input.get(j).charAt(c) == '}'){
+                    depth--;
+                }
+
+                if (found > 0 && depth == 0) {
+                    end = j;
+                    doBreak = true;
+
+                    break;
+                }
+            }
+
+            if (doBreak) break;
         }
+
+        if (end == -1)
+            throw new CompilationException("Unclosed statement!");
+
+        return end;
+    }
+
+    private String allocate(String statement) {
+        if (statement.startsWith("var ")) {
+            String varString = statement.substring(3);
+            get(varString.split("=")[0].replace(" ", ""));
+            return statement.substring(4);
+        }
+        return statement;
+    }
+
+    public void compile(String inPath, String outPath) {
+        List<String> clean = new ArrayList<>(Arrays.asList(readFileClean(inPath)));
+
+        clean = separateCurved(clean);
+
+        // Debug Code
+        System.out.println("Formatted code:");
+        for (String line : clean) {
+            System.out.println(line);
+        }
+        System.out.println();
+
+        // Allocate variables.
+        for (int i = 0; i < clean.size(); i++) {
+            if (clean.get(i).startsWith("var ")) {
+                clean.set(i, clean.get(i).substring(4));
+                get(clean.get(i).split("=")[0].replace(" ", ""));
+            }
+        }
+
+        List<AssemblyOperation> operations = new ArrayList<>(compilePart(clean, null));
 
         updateMemoryRegs();
 
         StringBuilder builder = new StringBuilder();
 
         builder.append("length = ").append(length).append("\n");
+
+        for (int i = 0; i < headers.size(); i++) {
+            int searched = i;
+            int val = -1;
+
+            for (int j = 0; j < operations.size(); j++) {
+                if (operations.get(j).headers.contains(searched)) {
+                    val = j + headerOffsets.get(i);
+                    break;
+                }
+            }
+
+            if (val == -1)
+                throw new CompilationException("Header not found :(");
+
+            builder.append("set ").
+                    append(headers.get(i).memoryPosition).
+                    append(" ").append(val).
+                    append("\n");
+        }
 
         for (int i = 0; i < constants.size(); i++) {
             builder.append("set ").
@@ -126,6 +377,39 @@ public class Compiler {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public List<String> separateCurved(List<String> input){
+        List<String> result = new ArrayList<>();
+
+        // Sugar for {} to not need new lines
+        for (String line : input) {
+            StringBuilder token = new StringBuilder();
+            for (char c : line.toCharArray()) {
+                if (c == '{' || c == '}') {
+                    if (token.length() > 0) {
+                        result.add(token.toString());
+                        token.setLength(0);
+                    }
+                    result.add(String.valueOf(c));
+                } else {
+                    token.append(c);
+                }
+            }
+            if (token.length() > 0) {
+                result.add(token.toString());
+            }
+        }
+
+        // Clean empty lines
+        List<String> returnVal = new ArrayList<>();
+        for (String line : result) {
+            if (!line.trim().isEmpty()) {
+                returnVal.add(line.trim());
+            }
+        }
+
+        return returnVal;
     }
 
     public static final String[] BUILT_IN_FUNCTION_NAMES = new String[] {
@@ -207,6 +491,18 @@ public class Compiler {
     List<String> names = new ArrayList<>();
 
     public Variable get(String name) {
+        int forbiddenChar = -1; // default: none found
+        for (char c : name.toCharArray()) {
+            if (FORBIDEN_SYMBOLS.indexOf(c) >= 0) {
+                forbiddenChar = FORBIDEN_SYMBOLS.indexOf(c);
+                break;
+            }
+        }
+
+        if (forbiddenChar != -1)
+            throw new CompilationException(
+                    String.format("Variable %s uses forbidden symbol: %s", name, FORBIDEN_SYMBOLS.charAt(forbiddenChar)));
+
         for (int i = 0; i < variables.size(); i++) {
             if (Objects.equals(names.get(i), name))
                 return variables.get(i);
@@ -252,6 +548,10 @@ public class Compiler {
 
         System.out.printf("%d temporary variables.%n", currentId);
 
+        for (Variable var : headers) {
+            var.memoryPosition = currentId++;
+        }
+        
         for (Variable var : constants) {
             var.memoryPosition = currentId++;
         }
@@ -261,6 +561,11 @@ public class Compiler {
         }
 
         length = currentId;
+
+        System.out.println("\nHeaders:");
+        for (int i = 0; i < headers.size(); i++) {
+            System.out.printf("%d%n", headers.get(i).memoryPosition);
+        }
 
         System.out.println("\nConstants:");
         for (int i = 0; i < constants.size(); i++) {
@@ -272,13 +577,6 @@ public class Compiler {
             System.out.printf("%s : %d%n", names.get(i), variables.get(i).memoryPosition);
         }
     }
-
-    // Not the real main, just test
-    public static void main(String[] args) {
-        Compiler compiler = new Compiler();
-
-    }
-
 
     public class Variable {
         int memoryPosition;
@@ -473,7 +771,7 @@ public class Compiler {
         Type type;
         Variable[] vars;
 
-        public String header = null;
+        public List<Integer> headers = new ArrayList<>();
 
         @Override
         public String toString() {
