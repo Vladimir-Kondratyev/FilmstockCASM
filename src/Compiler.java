@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Objects;
 
 public class Compiler {
-    private static final String FORBIDDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};, ";
-    private static final String MACRO_FORBIDDEN_SYMBOLS = "1234567890.@=&|?><^*/+\\-%(){};, ";
+    private static final String FORBIDDEN_SYMBOLS = "$#@=&|?><^*/+\\-%(){};, ";
+    private static final String MACRO_FORBIDDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};, ";
 
     int length = 0;
 
@@ -54,41 +54,44 @@ public class Compiler {
         int macroID = -1;
 
         for (int i = 0; i < macroNames.size(); i++) {
-            if (macroName == macroNames.get(i)) {
+            if (Objects.equals(macroName, macroNames.get(i))) {
                 macroID = i;
                 break;
             }
         }
-        if (macroID == 0)
+        if (macroID == -1)
             throw new CompilationException("Unknown macro!");
         
         List<String> macro = macros.get(macroID);
         List<String> macroArguments = macroArgumentNames.get(macroID);
         List<String> compiledMacro = new ArrayList<>(List.copyOf(macro));
 
+        System.out.println(macro);
+
         for (int l = 0; l < compiledMacro.size(); l++) {
             for (int arg = 0; arg < macroArguments.size(); arg++) {
                 String line = compiledMacro.get(l);
                 String argument = macroArguments.get(arg);
+
+                int argumentLength = argument.length();
 
                 List<Integer> beginnings = findIn(line, argument);
 
                 // Validate all found indices.
                 for (int b = beginnings.size() - 1; b>-1; b--) {
                     int beginning = beginnings.get(b);
-                    boolean valid = isValidArgument(beginning, b, line);
+                    boolean valid = isValidArgument(beginning, line, argumentLength);
 
                     if (!valid) {
                         beginnings.remove(b);
                     }
                 }
 
-                int argumentLength = argument.length();
                 // Replace all valid macro arguments with the given Argument right to left
                 for (int b = beginnings.size()-1; b > -1; b--) {
                     int beginning = beginnings.get(b);
 
-                    line = line.substring(0, beginning) + argumentNames.get(arg)
+                    line = line.substring(0, beginning-1) + argumentNames.get(arg)
                             + line.substring(beginning + argumentLength);
                 }
 
@@ -98,6 +101,31 @@ public class Compiler {
         }
 
         return compiledMacro;
+    }
+
+    private static boolean isValidArgument(int beginning, String line, int argumentLength) {
+        boolean valid = true;
+
+        // Check if the character before it is not an operation
+        if (beginning > 0) {
+            if (line.charAt(beginning-1)!='$') {
+                valid = false;
+            }
+        }
+        else {
+            valid = false;
+        }
+
+        // Check if the character before it is not an operation
+        if (beginning + argumentLength < line.length()) {
+            if (!FORBIDDEN_SYMBOLS.contains(String.valueOf(line.charAt(beginning + argumentLength)))) {
+                valid = false;
+            }
+        }
+        else {
+            System.out.println("AAAA");
+        }
+        return valid;
     }
 
     public void addMacro(String name, List<String> body, List<String> arguments) {
@@ -112,12 +140,13 @@ public class Compiler {
         for (int i = 0; i < input.size(); i++) {
             String line = input.get(i);
 
-            if (line.startsWith("macro")){
+            if (line.startsWith("#macro")){
                 String[] separated = line.split(" ");
                 String joined = String.join("", Arrays.copyOfRange(separated, 1, separated.length));
                 String[] joinedSeparated = joined.split("\\(");
 
                 String name = joinedSeparated[0].replace(" ", "");
+
                 String parsedArgs = joinedSeparated[1].split("}")[0].replace(" ", "");
                 String[] arguments = parsedArgs.substring(0, parsedArgs.length()-1).split(",");
 
@@ -137,7 +166,7 @@ public class Compiler {
 
                 int end = findEndOfStatement(i, input);
 
-                List<String> body = input.subList(i, end+1);
+                List<String> body = input.subList(i+2, end);
 
                 macros.add(body);
                 macroNames.add(name);
@@ -151,25 +180,6 @@ public class Compiler {
         }
 
         return parsed;
-    }
-    
-    private static boolean isValidArgument(int beginning, int b, String line) {
-        boolean valid = true;
-
-        // Check if the character before it is not an operation
-        if (beginning > 0) {
-            if (!FORBIDDEN_SYMBOLS.contains(String.valueOf(line.charAt(beginning-1)))) {
-                valid = false;
-            }
-        }
-
-        // Check if the character before it is not an operation
-        if (beginning < line.length() - 1) {
-            if (!FORBIDDEN_SYMBOLS.contains(String.valueOf(line.charAt(beginning+1)))) {
-                valid = false;
-            }
-        }
-        return valid;
     }
 
     /**
@@ -470,12 +480,68 @@ public class Compiler {
         return statement;
     }
 
+    private List<String> inlineMacros(List<String> input) {
+        List<String> output = new ArrayList<>();
+
+        for (String line : input) {
+            if (line.startsWith("#")) {
+                String noHash = line.substring(1);
+
+                String[] separated = noHash.split("\\(");
+
+                String name = separated[0].replace(" ", "");
+                String joined = String.join("", Arrays.copyOfRange(separated, 1, separated.length));
+
+                String parsedArgs = joined.replace(" ", "");
+                String[] arguments = parsedArgs.substring(0, parsedArgs.length()-1).split(",");
+
+                // System.out.println("Inline macros name: " + name);
+
+                output.addAll(inlineMacro(name, Arrays.asList(arguments)));
+            }
+            else {
+                output.add(line);
+            }
+        }
+
+        return output;
+    }
+
+    private List<String> inlineFiles(List<String> input) {
+        List<String> output = new ArrayList<>();
+
+        for (String line : input) {
+            if (line.startsWith("#")) {
+                String noHash = line.substring(1);
+                noHash = noHash.strip();
+
+                if (noHash.startsWith("include")) {
+                    String path = noHash.substring(7).strip();
+                    List<String> loaded =List.of(readFileClean(path));
+
+                    output.addAll(loaded);
+                }
+                else {
+                    output.add(line);
+                }
+            }
+            else {
+                output.add(line);
+            }
+        }
+        return output;
+    }
+
     public void compile(String inPath, String outPath) {
         List<String> clean = new ArrayList<>(Arrays.asList(readFileClean(inPath)));
+
+        clean = inlineFiles(clean);
 
         clean = separateCurved(clean);
 
         clean = parseMacros(clean);
+
+        clean = inlineMacros(clean);
 
         // Debug Code
         System.out.println("Formatted code:");
