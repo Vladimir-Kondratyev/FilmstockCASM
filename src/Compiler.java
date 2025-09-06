@@ -5,7 +5,8 @@ import java.util.List;
 import java.util.Objects;
 
 public class Compiler {
-    private static final String FORBIDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};,";
+    private static final String FORBIDDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};, ";
+    private static final String MACRO_FORBIDDEN_SYMBOLS = "1234567890.@=&|?><^*/+\\-%(){};, ";
 
     int length = 0;
 
@@ -43,6 +44,150 @@ public class Compiler {
 
     private int getHeaderOffset(int id) {
         return headerOffsets.get(id);
+    }
+
+    List<List<String>> macros = new ArrayList<>();
+    List<List<String>> macroArgumentNames = new ArrayList<>();
+    List<String> macroNames = new ArrayList<>();
+
+    public List<String> inlineMacro(String macroName, List<String> argumentNames) {
+        int macroID = -1;
+
+        for (int i = 0; i < macroNames.size(); i++) {
+            if (macroName == macroNames.get(i)) {
+                macroID = i;
+                break;
+            }
+        }
+        if (macroID == 0)
+            throw new CompilationException("Unknown macro!");
+        
+        List<String> macro = macros.get(macroID);
+        List<String> macroArguments = macroArgumentNames.get(macroID);
+        List<String> compiledMacro = new ArrayList<>(List.copyOf(macro));
+
+        for (int l = 0; l < compiledMacro.size(); l++) {
+            for (int arg = 0; arg < macroArguments.size(); arg++) {
+                String line = compiledMacro.get(l);
+                String argument = macroArguments.get(arg);
+
+                List<Integer> beginnings = findIn(line, argument);
+
+                // Validate all found indices.
+                for (int b = beginnings.size() - 1; b>-1; b--) {
+                    int beginning = beginnings.get(b);
+                    boolean valid = isValidArgument(beginning, b, line);
+
+                    if (!valid) {
+                        beginnings.remove(b);
+                    }
+                }
+
+                int argumentLength = argument.length();
+                // Replace all valid macro arguments with the given Argument right to left
+                for (int b = beginnings.size()-1; b > -1; b--) {
+                    int beginning = beginnings.get(b);
+
+                    line = line.substring(0, beginning) + argumentNames.get(arg)
+                            + line.substring(beginning + argumentLength);
+                }
+
+                compiledMacro.set(l, line);
+            }
+            
+        }
+
+        return compiledMacro;
+    }
+
+    public void addMacro(String name, List<String> body, List<String> arguments) {
+        macroNames.add(name);
+        macros.add(body);
+        macroArgumentNames.add(arguments);
+    }
+
+    public List<String> parseMacros(List<String> input){
+        List<String> parsed = new ArrayList<>();
+
+        for (int i = 0; i < input.size(); i++) {
+            String line = input.get(i);
+
+            if (line.startsWith("macro")){
+                String[] separated = line.split(" ");
+                String joined = String.join("", Arrays.copyOfRange(separated, 1, separated.length));
+                String[] joinedSeparated = joined.split("\\(");
+
+                String name = joinedSeparated[0].replace(" ", "");
+                String parsedArgs = joinedSeparated[1].split("}")[0].replace(" ", "");
+                String[] arguments = parsedArgs.substring(0, parsedArgs.length()-1).split(",");
+
+                if (arguments.length == 1) {
+                    if (arguments[0].isEmpty()) {
+                        arguments = new String[] {};
+                    }
+                }
+
+                // Safety checks
+                for (String argument : arguments){
+                    if (argument.isEmpty())
+                        throw new CompilationException("Empty argument in macro.");
+                }
+                if (name.isEmpty())
+                    throw new CompilationException("Empty macro name.");
+
+                int end = findEndOfStatement(i, input);
+
+                List<String> body = input.subList(i, end+1);
+
+                macros.add(body);
+                macroNames.add(name);
+                macroArgumentNames.add(List.of(arguments));
+
+                i = end;
+            }
+            else {
+                parsed.add(line);
+            }
+        }
+
+        return parsed;
+    }
+    
+    private static boolean isValidArgument(int beginning, int b, String line) {
+        boolean valid = true;
+
+        // Check if the character before it is not an operation
+        if (beginning > 0) {
+            if (!FORBIDDEN_SYMBOLS.contains(String.valueOf(line.charAt(beginning-1)))) {
+                valid = false;
+            }
+        }
+
+        // Check if the character before it is not an operation
+        if (beginning < line.length() - 1) {
+            if (!FORBIDDEN_SYMBOLS.contains(String.valueOf(line.charAt(beginning+1)))) {
+                valid = false;
+            }
+        }
+        return valid;
+    }
+
+    /**
+     * Helper Method to find all beginnings of a substring in a string.
+     * @param text Where to search?
+     * @param pattern What to search for?
+     * @return Beginning positions of the substring.
+     */
+    public static List<Integer> findIn(String text, String pattern) {
+        List<Integer> positions = new ArrayList<>();
+        int index = text.indexOf(pattern);
+
+        while (index >= 0) {
+            positions.add(index);
+            index = text.indexOf(pattern, index + pattern.length());
+        }
+
+        return positions;
     }
 
     public static String[] readFileClean(String path) {
@@ -106,7 +251,7 @@ public class Compiler {
         return operations;
     }
 
-    public List<AssemblyOperation> parseIf (List<String> input, List<String> elseLines){
+    public List<AssemblyOperation> parseIf (List<String> input, List<String> elseLines, AssemblyOperation breakStatement){
         List<AssemblyOperation> operations = new ArrayList<>();
 
         // Parse condition
@@ -141,7 +286,7 @@ public class Compiler {
         operations.get(operations.size()-1).headers.add(ifBodyHeaderId);
 
         List<String> stringsToExecute = input.subList(2, input.size()-1);
-        operations.addAll(compilePart(stringsToExecute, null));
+        operations.addAll(compilePart(stringsToExecute, breakStatement));
 
         // Add header to which we jump if the condition was false
         operations.get(operations.size()-1).headers.add(endHeaderId);
@@ -169,6 +314,9 @@ public class Compiler {
         // Initialize Headers
         Variable endHeader = getHeader(1);
         int endHeaderId = getLatestHeaderId();
+
+        Variable endHeaderBreak = getHeader(0);
+        int endHeaderBreakId = getLatestHeaderId();
 
         //#region Initialization
         // Initialize the variable if not already
@@ -207,7 +355,8 @@ public class Compiler {
 
         operations.addAll(compileLine(forExpressions[1], 0, condition));
         // Break operation is what is executed for "break" lines.
-        AssemblyOperation breakOperation = new AssemblyOperation(Type.JUMP, new Variable[] {endHeader});
+        AssemblyOperation breakOperation = new AssemblyOperation(Type.JUMP, new Variable[] {endHeaderBreak});
+
         operations.add(new AssemblyOperation(Type.JUMP_IF, new Variable[] {condition, endHeader}));
 
         if (isInitEmpty)
@@ -229,6 +378,7 @@ public class Compiler {
 
         // Add header to the end
         operations.get(operations.size()-1).headers.add(endHeaderId);
+        operations.get(operations.size()-1).headers.add(endHeaderBreakId);
 
         return operations;
     }
@@ -252,7 +402,7 @@ public class Compiler {
                 if (elseEnd != end) {
                     elseLines = clean.subList(end+3,elseEnd);
                 }
-                operations.addAll(parseIf(clean.subList(i, end+1), elseLines));
+                operations.addAll(parseIf(clean.subList(i, end+1), elseLines, breakStatement));
 
                 i = end + (elseEnd - end);
             }
@@ -262,6 +412,13 @@ public class Compiler {
                 operations.addAll(parseFor(clean.subList(i, end+1)));
 
                 i = end;
+            }
+            else if (Objects.equals(clean.get(i), "break")){
+                if (breakStatement == null)
+                    throw new CompilationException("Using a break statement outside a loop!");
+                else {
+                    operations.add(breakStatement);
+                }
             }
             else {
                 operations.addAll(compileLine(clean.get(i), 0, null));
@@ -317,6 +474,8 @@ public class Compiler {
         List<String> clean = new ArrayList<>(Arrays.asList(readFileClean(inPath)));
 
         clean = separateCurved(clean);
+
+        clean = parseMacros(clean);
 
         // Debug Code
         System.out.println("Formatted code:");
@@ -412,52 +571,6 @@ public class Compiler {
         return returnVal;
     }
 
-    public static final String[] BUILT_IN_FUNCTION_NAMES = new String[] {
-            "sin",
-            "cos",
-            "tan",
-            "asin",
-            "acos",
-            "atan2",
-            "root",
-            "not",
-            "it", // Iterate
-            "pointer",
-            "position",
-            "sqrt",
-            "print",
-            "ascii",
-            "ia", // Iterate After
-            "end",
-            "floor",
-            "round",
-            "ceil",
-            "time"
-    };
-
-    public static final int[] BUILT_IN_FUNCTION_ARG_AMOUNT = new int[] {
-            1, // "sin",
-            1, // "cos",
-            1, // "tan",
-            1, // "asin",
-            1, // "acos",
-            2, // "atan2",
-            2, // "root",
-            1, // "not",
-            1, // "it", // Iterate
-            1, // "pointer",
-            0, // "position"
-            1, // "sqrt"
-            -1,// "print" = special case
-            -1,// "ascii" = special case
-            1,  // "ia" // Iterate After
-            1, // end Code
-            1,  //"floor",
-            1,  //"round",
-            1,  //"ceil",
-            0  //"getTime"
-    };
-
     public List<String> functionNames = new ArrayList<>();
     public List<Integer> functionArgumentAmounts = new ArrayList<>();
 
@@ -493,15 +606,15 @@ public class Compiler {
     public Variable get(String name) {
         int forbiddenChar = -1; // default: none found
         for (char c : name.toCharArray()) {
-            if (FORBIDEN_SYMBOLS.indexOf(c) >= 0) {
-                forbiddenChar = FORBIDEN_SYMBOLS.indexOf(c);
+            if (FORBIDDEN_SYMBOLS.indexOf(c) >= 0) {
+                forbiddenChar = FORBIDDEN_SYMBOLS.indexOf(c);
                 break;
             }
         }
 
         if (forbiddenChar != -1)
             throw new CompilationException(
-                    String.format("Variable %s uses forbidden symbol: %s", name, FORBIDEN_SYMBOLS.charAt(forbiddenChar)));
+                    String.format("Variable %s uses forbidden symbol: %s", name, FORBIDDEN_SYMBOLS.charAt(forbiddenChar)));
 
         for (int i = 0; i < variables.size(); i++) {
             if (Objects.equals(names.get(i), name))
@@ -581,6 +694,7 @@ public class Compiler {
     public class Variable {
         int memoryPosition;
         final String debugName;
+        public int macroTempId = -1;
 
         public Variable(String debugName) {
             this.debugName = debugName;
@@ -981,6 +1095,52 @@ public class Compiler {
 
         return result;
     }
+
+    public static final String[] BUILT_IN_FUNCTION_NAMES = new String[] {
+            "sin",
+            "cos",
+            "tan",
+            "asin",
+            "acos",
+            "atan2",
+            "root",
+            "not",
+            "it", // Iterate
+            "pointer",
+            "position",
+            "sqrt",
+            "print",
+            "ascii",
+            "ia", // Iterate After
+            "end",
+            "floor",
+            "round",
+            "ceil",
+            "time"
+    };
+
+    public static final int[] BUILT_IN_FUNCTION_ARG_AMOUNT = new int[] {
+            1, // "sin",
+            1, // "cos",
+            1, // "tan",
+            1, // "asin",
+            1, // "acos",
+            2, // "atan2",
+            2, // "root",
+            1, // "not",
+            1, // "it", // Iterate
+            1, // "pointer",
+            0, // "position"
+            1, // "sqrt"
+            -1,// "print" = special case
+            -1,// "ascii" = special case
+            1,  // "ia" // Iterate After
+            1, // end Code
+            1,  //"floor",
+            1,  //"round",
+            1,  //"ceil",
+            0  //"getTime"
+    };
 
     public List<AssemblyOperation> getAssemblyOfBuiltIn(int functionId, Variable[] arguments) {
         List<AssemblyOperation> result = new ArrayList<>();
