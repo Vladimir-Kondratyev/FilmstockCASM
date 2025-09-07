@@ -40,6 +40,22 @@ public class Assembler {
             "round",        // 29
             "ceil",         // 30
             "time",         // 31
+            "newList",       // 32
+            "copyFromList",     // 33
+            "lengthOfList",     // 34
+            "listAmount",       // 35
+            "addList",      // 36
+            "removeAtList",     // 37
+            "emptyList",        // 38
+            "removeAll",        // 39
+            "addAtList",        // 40
+            "reverseList",      // 41
+            "shuffleList",      // 42
+            "sortList",     // 43
+            "sleep",        // 44
+            "random",       // 45
+            "clearConsole",      // 46
+            "listSet"
     };
 
     public static final int[] OPERATION_LENGTHS = {
@@ -74,7 +90,22 @@ public class Assembler {
             2,     //"floor"
             2,     //"round"
             2,     //"ceil"
-            1     //"time"
+            1,     //"time"
+            1,  // newList(p1)                     -> 32
+            3,  // copyFromList(p1, p2, p3)       -> 33
+            2,  // lengthOfList(p1, p2)           -> 34
+            1,  // listAmount(p1)                 -> 35
+            2,  // addList(p1, p2)                -> 36
+            2,  // removeAt(p1, p2)               -> 37
+            1,  // emptyList(p1)                  -> 38
+            0,  // removeAll()                     -> 39
+            3,  // addAt(p1, p2, p3)              -> 40
+            1,  // reverseList(p1)                -> 41
+            1,  // shuffleList(p1)                -> 42
+            2,  // sort(p1, p2)                   -> 43
+            1,  // sleep(p1)                        -> 44
+            1,  // random(p1)                       -> 45
+            0   // clearConsole()                    -> 46
     };
 
     public static void assemble(String assemblyPath, String outputPath) throws IOException {

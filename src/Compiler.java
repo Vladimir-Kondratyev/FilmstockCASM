@@ -556,6 +556,13 @@ public class Compiler {
                 clean.set(i, clean.get(i).substring(4));
                 get(clean.get(i).split("=")[0].replace(" ", ""));
             }
+            else if (clean.get(i).startsWith("for")) {
+                String noFor = clean.get(i).substring(3);
+                String firstPart = noFor.split(";")[0].strip();
+                if (firstPart.startsWith("var ")) {
+                    get(firstPart.split("=")[0].substring(3).replace(" ", ""));
+                }
+            }
         }
 
         List<AssemblyOperation> operations = new ArrayList<>(compilePart(clean, null));
@@ -772,139 +779,6 @@ public class Compiler {
         }
     }
 
-    public enum Type {
-        COPY,
-        ADD,
-        SUBTRACT,
-        MULTIPLY,
-        DIVIDE,
-        MOD,
-        POWER,
-        SIN,
-        COS,
-        TAN,
-        ASIN,
-        ACOS,
-        ATAN2,
-        IS_EQUAL,
-        IS_GREATER,
-        NOT,
-        AND,
-        OR,
-        JUMP_IF,
-        PRINT,
-        PRINT_NUMBERS,
-        ITERATE,
-        COPY_FROM,
-        POINTER,
-        POSITION,
-        JUMP,
-        END,
-        FLOOR,
-        ROUND,
-        CEIL,
-        TIME
-    }
-
-    private String typeToString(Type type) {
-        switch (type) {
-            case COPY -> {
-                return "copy";
-            }
-            case ADD -> {
-                return "add";
-            }
-            case SUBTRACT -> {
-                return "subtract";
-            }
-            case MULTIPLY -> {
-                return "multiply";
-            }
-            case DIVIDE -> {
-                return "divide";
-            }
-            case MOD -> {
-                return "mod";
-            }
-            case POWER -> {
-                return "pow";
-            }
-            case SIN -> {
-                return "sin";
-            }
-            case COS -> {
-                return "cos";
-            }
-            case TAN -> {
-                return "tan";
-            }
-            case ASIN -> {
-                return "asin";
-            }
-            case ACOS -> {
-                return "acos";
-            }
-            case ATAN2 -> {
-                return "atan2";
-            }
-            case IS_EQUAL -> {
-                return "equal";
-            }
-            case IS_GREATER -> {
-                return "greaterThan";
-            }
-            case NOT -> {
-                return "not";
-            }
-            case AND -> {
-                return "and";
-            }
-            case OR -> {
-                return "or";
-            }
-            case JUMP_IF -> {
-                return "jumpIf";
-            }
-            case PRINT -> {
-                return "print";
-            }
-            case PRINT_NUMBERS -> {
-                return "printNumbers";
-            }
-            case ITERATE -> {
-                return "iterate";
-            }
-            case COPY_FROM -> {
-                return "copyFrom";
-            }
-            case POINTER -> {
-                return "pointer";
-            }
-            case POSITION -> {
-                return "position";
-            }
-            case JUMP -> {
-                return "jump";
-            }
-            case END -> {
-                return "end";
-            }
-            case FLOOR -> {
-                return "floor";
-            }
-            case ROUND -> {
-                return "round";
-            }
-            case CEIL -> {
-                return "ceil";
-            }
-            case TIME -> {
-                return "time";
-            }
-        }
-        throw new CompilationException("Unknown operation type :(, " + type);
-    }
-
     private int expectedArguments(OPType t) {
         return switch (t) {
             case POWER, MULTIPLY, DIVIDE, MOD, ADD, SUBTRACT, AND, OR, IS_EQUAL, IS_GREATER, IS_SMALLER -> 2;
@@ -944,33 +818,6 @@ public class Compiler {
                 }
             }
             throw new IllegalArgumentException("Unknown operation: " + s);
-        }
-    }
-
-    class AssemblyOperation {
-        Type type;
-        Variable[] vars;
-
-        public List<Integer> headers = new ArrayList<>();
-
-        @Override
-        public String toString() {
-            StringBuilder builder = new StringBuilder();
-
-            builder.append(typeToString(type));
-
-           for (Variable variable : vars)
-               builder.append(" ").append(variable.memoryPosition);
-
-           if ((type == Type.PRINT || type == Type.PRINT_NUMBERS) && vars.length == 1)
-               builder.append(" 1");
-
-           return builder.toString();
-        }
-
-        public AssemblyOperation(Type type, Variable[] vars) {
-            this.type = type;
-            this.vars = vars;
         }
     }
 
@@ -1182,7 +1029,22 @@ public class Compiler {
             "floor",
             "round",
             "ceil",
-            "time"
+            "time",
+            "lnew",
+            "lget",
+            "len",
+            "lamount",
+            "ladd",
+            "lremove",
+            "lempty",
+            "lreset",
+            "linsert",
+            "lreverse",
+            "lshuffle",
+            "lsort",
+            "sleep",
+            "random",
+            "clear"
     };
 
     public static final int[] BUILT_IN_FUNCTION_ARG_AMOUNT = new int[] {
@@ -1205,7 +1067,22 @@ public class Compiler {
             1,  //"floor",
             1,  //"round",
             1,  //"ceil",
-            0  //"getTime"
+            0,  //"getTime"
+            0,  // "newList"
+            2,  // "lget"
+            1,  // "len"
+            0, // amount of lists
+            2,  // ladd
+            2,  // lremove
+            1,   // lempty
+            0,  // lreset
+            3,   // linsert
+            1,   // lreverse
+            1,   // lshuffle
+            2,   // lsort
+            1,   // sleep
+            0,   // random
+            0    // clear
     };
 
     public List<AssemblyOperation> getAssemblyOfBuiltIn(int functionId, Variable[] arguments) {
@@ -1274,11 +1151,137 @@ public class Compiler {
             case 19: // Time
                 result.add(new AssemblyOperation(Type.TIME, new Variable[] {arguments[0]}));
                 break;
+            case 20: // new list
+                result.add(new AssemblyOperation(Type.NEW_LIST, new Variable[] {arguments[0]}));
+                break;
+            case 21: // get from list
+                Variable tempListGet = getTemporary();
+
+                result.add(new AssemblyOperation(Type.COPY_FROM_LIST, new Variable[] {arguments[0], arguments[1], tempListGet}));
+
+                arguments[0] = tempListGet;
+                break;
+            case 22: // length of list
+                result.add(new AssemblyOperation(Type.LENGTH_OF_LIST, new Variable[] {arguments[0], arguments[0]}));
+                break;
+            case 23: // list amounts
+                result.add(new AssemblyOperation(Type.LIST_AMOUNT, new Variable[] {arguments[0]}));
+                break;
+            case 24: // Add to list
+                result.add(new AssemblyOperation(Type.ADD_LIST, new Variable[] {arguments[0], arguments[1]}));
+                break;
+            case 25: // Remove from list
+                result.add(new AssemblyOperation(Type.REMOVE_AT_LIST, new Variable[] {arguments[0], arguments[1]}));
+                break;
+            case 26: // empty list
+                result.add(new AssemblyOperation(Type.EMPTY_LIST, new Variable[] {arguments[0]}));
+                break;
+            case 27: // remove all
+                result.add(new AssemblyOperation(Type.REMOVE_ALL_LISTS, new Variable[] {}));
+                break;
+            case 28: // Insert
+                result.add(new AssemblyOperation(Type.ADD_AT_LIST, new Variable[] {arguments[0], arguments[1], arguments[2]}));
+                break;
+            case 29: // Reverse
+                result.add(new AssemblyOperation(Type.REVERSE_LIST, new Variable[] {arguments[0]}));
+                break;
+            case 30: // Shuffle
+                result.add(new AssemblyOperation(Type.SHUFFLE_LIST, new Variable[] {arguments[0]}));
+                break;
+            case 31: // Sort
+                result.add(new AssemblyOperation(Type.SORT_LIST, new Variable[] {arguments[0], arguments[1]}));
+                break;
+            case 32: // Sleep
+                result.add(new AssemblyOperation(Type.SLEEP, new Variable[] {arguments[0]}));
+                break;
+            case 33: // Random
+                result.add(new AssemblyOperation(Type.RANDOM, new Variable[] {arguments[0]}));
+                break;
+            case 34: // clear
+                result.add(new AssemblyOperation(Type.CLEAR_CONSOLE, new Variable[] {}));
+                break;
             default:
                 throw new CompilationException("Unknown built-in function with id: " + functionId);
         }
 
         return result;
+    }
+
+
+    public enum Type {
+        COPY,
+        ADD,
+        SUBTRACT,
+        MULTIPLY,
+        DIVIDE,
+        MOD,
+        POWER,
+        SIN,
+        COS,
+        TAN,
+        ASIN,
+        ACOS,
+        ATAN2,
+        IS_EQUAL,
+        IS_GREATER,
+        NOT,
+        AND,
+        OR,
+        JUMP_IF,
+        PRINT,
+        PRINT_NUMBERS,
+        ITERATE,
+        COPY_FROM,
+        POINTER,
+        POSITION,
+        JUMP,
+        END,
+        FLOOR,
+        ROUND,
+        CEIL,
+        TIME,
+        NEW_LIST,
+        COPY_FROM_LIST,
+        LENGTH_OF_LIST,
+        LIST_AMOUNT,
+        ADD_LIST,
+        REMOVE_AT_LIST,
+        EMPTY_LIST,
+        REMOVE_ALL_LISTS,
+        ADD_AT_LIST,
+        REVERSE_LIST,
+        SHUFFLE_LIST,
+        SORT_LIST,
+        SLEEP,
+        RANDOM,
+        CLEAR_CONSOLE
+    }
+
+    class AssemblyOperation {
+        Type type;
+        Variable[] vars;
+
+        public List<Integer> headers = new ArrayList<>();
+
+        @Override
+        public String toString() {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append(typeToString(type));
+
+            for (Variable variable : vars)
+                builder.append(" ").append(variable.memoryPosition);
+
+            if ((type == Type.PRINT || type == Type.PRINT_NUMBERS) && vars.length == 1)
+                builder.append(" 1");
+
+            return builder.toString();
+        }
+
+        public AssemblyOperation(Type type, Variable[] vars) {
+            this.type = type;
+            this.vars = vars;
+        }
     }
 
     public Type fromBuiltInId(int id) {
@@ -1322,4 +1325,148 @@ public class Compiler {
         };
     }
 
+
+    private String typeToString(Type type) {
+        switch (type) {
+            case COPY -> {
+                return "copy";
+            }
+            case ADD -> {
+                return "add";
+            }
+            case SUBTRACT -> {
+                return "subtract";
+            }
+            case MULTIPLY -> {
+                return "multiply";
+            }
+            case DIVIDE -> {
+                return "divide";
+            }
+            case MOD -> {
+                return "mod";
+            }
+            case POWER -> {
+                return "pow";
+            }
+            case SIN -> {
+                return "sin";
+            }
+            case COS -> {
+                return "cos";
+            }
+            case TAN -> {
+                return "tan";
+            }
+            case ASIN -> {
+                return "asin";
+            }
+            case ACOS -> {
+                return "acos";
+            }
+            case ATAN2 -> {
+                return "atan2";
+            }
+            case IS_EQUAL -> {
+                return "equal";
+            }
+            case IS_GREATER -> {
+                return "greaterThan";
+            }
+            case NOT -> {
+                return "not";
+            }
+            case AND -> {
+                return "and";
+            }
+            case OR -> {
+                return "or";
+            }
+            case JUMP_IF -> {
+                return "jumpIf";
+            }
+            case PRINT -> {
+                return "print";
+            }
+            case PRINT_NUMBERS -> {
+                return "printNumbers";
+            }
+            case ITERATE -> {
+                return "iterate";
+            }
+            case COPY_FROM -> {
+                return "copyFrom";
+            }
+            case POINTER -> {
+                return "pointer";
+            }
+            case POSITION -> {
+                return "position";
+            }
+            case JUMP -> {
+                return "jump";
+            }
+            case END -> {
+                return "end";
+            }
+            case FLOOR -> {
+                return "floor";
+            }
+            case ROUND -> {
+                return "round";
+            }
+            case CEIL -> {
+                return "ceil";
+            }
+            case TIME -> {
+                return "time";
+            }
+            case NEW_LIST -> {
+                return "newList";
+            }
+            case COPY_FROM_LIST -> {
+                return "copyFromList";
+            }
+            case LENGTH_OF_LIST -> {
+                return "lengthOfList";
+            }
+            case LIST_AMOUNT -> {
+                return "listAmount";
+            }
+            case ADD_LIST -> {
+                return "addList";
+            }
+            case REMOVE_AT_LIST -> {
+                return "removeAtList";
+            }
+            case EMPTY_LIST -> {
+                return "emptyList";
+            }
+            case REMOVE_ALL_LISTS -> {
+                return "removeAll";
+            }
+            case ADD_AT_LIST -> {
+                return "addAtList";
+            }
+            case REVERSE_LIST -> {
+                return "reverseList";
+            }
+            case SHUFFLE_LIST -> {
+                return "shuffleList";
+            }
+            case SORT_LIST -> {
+                return "sortList";
+            }
+            case SLEEP -> {
+                return "sleep";
+            }
+            case RANDOM -> {
+                return "random";
+            }
+            case CLEAR_CONSOLE -> {
+                return "clearConsole";
+            }
+        }
+        throw new CompilationException("Unknown operation type :(, " + type);
+    }
 }

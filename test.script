@@ -1,7 +1,75 @@
-#macro a() {
-    print(1)
-}
+// Film Stock: prints-only test suite for sleep, random, clear and ALL list ops
+// No asserts. Just prints. — Le Chat
 
-#a()
+// === Sleep test ===
+var t0 = time()
+sleep(150)
+var t1 = time()
+var dt = t1 - t0
+print(t0, t1, dt)            // (epoch ms, epoch ms, measured delta ms)
 
-print(10)
+// === Random test ===
+var r1 = random()
+var r2 = random()
+print(r1, r2)                // two random numbers in [0,1)
+
+// === Clear test (manual observation) ===
+print(1000)                  // marker before clear
+clear()                      // should clear console output
+print(2000)                  // marker after clear
+
+// === List operations ===
+lreset()                     // ensure empty list system
+var p = lnew()               // create list p
+
+// add elements 10,20,30
+ladd(p, 10)
+ladd(p, 20)
+ladd(p, 30)
+print(len(p))                // expect 3
+print(lget(p,0), lget(p,1), lget(p,2))   // expect 10,20,30
+
+// insert 15 at index 1 -> [10,15,20,30]
+linsert(p, 15, 1)
+print(len(p))                // expect 4
+print(lget(p,0), lget(p,1), lget(p,2), lget(p,3))  // expect 10,15,20,30
+
+// remove index 2 -> removes 20 -> [10,15,30]
+lremove(p, 2)
+print(len(p))                // expect 3
+print(lget(p,0), lget(p,1), lget(p,2))   // expect 10,15,30
+
+// reverse -> [30,15,10]
+lreverse(p)
+print(lget(p,0), lget(p,1), lget(p,2))   // expect 30,15,10
+
+// sort ascending -> [10,15,30]
+lsort(p, 0)
+print(lget(p,0), lget(p,1), lget(p,2))   // expect 10,15,30
+
+// shuffle -> nondeterministic order, keep properties
+var sum_before = lget(p,0) + lget(p,1) + lget(p,2)
+lshuffle(p)
+var sum_after = lget(p,0) + lget(p,1) + lget(p,2)
+print(sum_before, sum_after, len(p))     // expect sums equal, len == 3
+
+// empty the list
+lempty(p)
+print(len(p))                // expect 0
+
+// multiple lists and lamount
+var a = lnew()
+var b = lnew()
+print(lamount())             // expect 2
+ladd(a, 1)
+ladd(a, 2)
+ladd(b, 42)
+print(len(a), len(b))        // expect 2, 1
+print(lget(b,0))             // expect 42
+
+// reset all lists
+lreset()
+print(lamount())             // expect 0
+
+// final marker
+print(12345, 1)
