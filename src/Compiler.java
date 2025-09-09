@@ -5,8 +5,9 @@ import java.util.List;
 import java.util.Objects;
 
 public class Compiler {
-    private static final String FORBIDDEN_SYMBOLS = "$#@=&|?><^*/+\\-%(){};, ";
-    private static final String MACRO_FORBIDDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};, ";
+    private static final String FORBIDDEN_SYMBOLS = "$#@=&|?><^*/+\\-%(){};,[]. ";
+    private static final String NUMERIC = "1234567890.";
+    // private static final String MACRO_FORBIDDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};, ";
 
     int length = 0;
 
@@ -66,8 +67,6 @@ public class Compiler {
         List<String> macroArguments = macroArgumentNames.get(macroID);
         List<String> compiledMacro = new ArrayList<>(List.copyOf(macro));
 
-        System.out.println(macro);
-
         for (int l = 0; l < compiledMacro.size(); l++) {
             for (int arg = 0; arg < macroArguments.size(); arg++) {
                 String line = compiledMacro.get(l);
@@ -121,9 +120,6 @@ public class Compiler {
             if (!FORBIDDEN_SYMBOLS.contains(String.valueOf(line.charAt(beginning + argumentLength)))) {
                 valid = false;
             }
-        }
-        else {
-            System.out.println("AAAA");
         }
         return valid;
     }
@@ -282,7 +278,7 @@ public class Compiler {
         Variable ifBodyHeader = getHeader(1);
         int ifBodyHeaderId = getLatestHeaderId();
 
-        Variable endHeader = getHeader(0);
+        Variable endHeader = getHeader(1);
         int endHeaderId = getLatestHeaderId();
 
         // Jump to header of the if body, if the condition was true
@@ -325,7 +321,7 @@ public class Compiler {
         Variable endHeader = getHeader(1);
         int endHeaderId = getLatestHeaderId();
 
-        Variable endHeaderBreak = getHeader(0);
+        Variable endHeaderBreak = getHeader(1);
         int endHeaderBreakId = getLatestHeaderId();
 
         //#region Initialization
@@ -481,30 +477,39 @@ public class Compiler {
     }
 
     private List<String> inlineMacros(List<String> input) {
-        List<String> output = new ArrayList<>();
+        boolean changed = true;
 
-        for (String line : input) {
-            if (line.startsWith("#")) {
-                String noHash = line.substring(1);
+        List<String> ret = new ArrayList<>(input);
 
-                String[] separated = noHash.split("\\(");
+        while (changed) {
+            changed = false;
+            List<String> output = new ArrayList<>();
 
-                String name = separated[0].replace(" ", "");
-                String joined = String.join("", Arrays.copyOfRange(separated, 1, separated.length));
+            for (String line : ret) {
+                if (line.startsWith("#")) {
+                    changed = true;
+                    String noHash = line.substring(1);
 
-                String parsedArgs = joined.replace(" ", "");
-                String[] arguments = parsedArgs.substring(0, parsedArgs.length()-1).split(",");
+                    String[] separated = noHash.split("\\(");
 
-                // System.out.println("Inline macros name: " + name);
+                    String name = separated[0].replace(" ", "");
+                    String joined = String.join("", Arrays.copyOfRange(separated, 1, separated.length));
 
-                output.addAll(inlineMacro(name, Arrays.asList(arguments)));
+                    String parsedArgs = joined.replace(" ", "");
+                    String[] arguments = parsedArgs.substring(0, parsedArgs.length()-1).split(",");
+
+                    // System.out.println("Inline macros name: " + name);
+
+                    output.addAll(inlineMacro(name, Arrays.asList(arguments)));
+                }
+                else {
+                    output.add(line);
+                }
             }
-            else {
-                output.add(line);
-            }
+
+            ret = new ArrayList<>(output);
         }
-
-        return output;
+        return ret;
     }
 
     private List<String> inlineFiles(List<String> input) {
@@ -532,6 +537,173 @@ public class Compiler {
         return output;
     }
 
+    private List<String> setListSugar(List<String> input) {
+        List<String> result = new ArrayList<>();
+
+        for (String line : input) {
+            String firstPart = line.split("=")[0];
+
+            if (firstPart.contains("[") && line.contains("=")) {
+                String[] seprarated = firstPart.split("\\[");
+                seprarated[0] = seprarated[0].strip();
+                seprarated[1] = seprarated[1].strip();
+
+                seprarated[1] = seprarated[1].substring(0, seprarated[1].length()-1);
+
+                String out = "lset(" + seprarated[0] + ", " + seprarated[1]
+                        + ", " + line.split("=")[1] + ")";
+
+                result.add(out);
+            }
+            else {
+                result.add(line);
+            }
+        }
+
+        return result;
+    }
+
+    private List<String> getListSugar(List<String> input) {
+        List<String> result = new ArrayList<>();
+
+        for (String line : input) {
+            String inline = line;
+
+            while (true) {
+                char[] charLine = inline.toCharArray();
+
+                int start = -1;
+                int end = -1;
+                int d = 0;
+                int startName = -1;
+
+                for (int i = 0; i < charLine.length; i++) {
+                    if (charLine[i] == '[') {
+                        if (d==0) {
+                            start = i;
+                        }
+                        d++;
+                    }
+                    else if (charLine[i] == ']') {
+                        d--;
+                        if (d==0) {
+                            end = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (start != -1) {
+                    for (int i = start-1; i > -1; i--) {
+                        if (FORBIDDEN_SYMBOLS.contains(String.valueOf(charLine[i]))) {
+                            startName = i + 1;
+                            break;
+                        }
+                    }
+
+                    String name = inline.substring(startName, start);
+                    String body = inline.substring(start+1, end);
+
+                    String r = "lget(" + name + ", " + body + ")";
+
+                    inline = inline.substring(0, startName) + r + inline.substring(end + 1);
+                }
+                else {
+                    result.add(inline);
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    public List<String> functionListSugar(List<String> input) {
+        List<String> result = new ArrayList<>();
+
+        for (String line : input) {
+            String inline = line;
+
+            while (true) {
+                char[] charLine = inline.toCharArray();
+
+                int start = -1;
+                int endFuncName = -1;
+                int startName = -1;
+
+                for (int i = 0; i < charLine.length; i++) {
+                    if (i != 0) {
+                        if (charLine[i] == '.' && (charLine[i-1] != '\\'
+                                && !NUMERIC.contains(String.valueOf(charLine[i-1])))) {
+                            start = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (start != -1) {
+                    for (int i = start-1; i > -1; i--) {
+                        if (FORBIDDEN_SYMBOLS.contains(String.valueOf(charLine[i]))) {
+                            startName = i + 1;
+                            break;
+                        }
+                        if (i == 0) {
+                            startName = 0;
+                            break;
+                        }
+                    }
+
+                    for (int i = start+1; i < charLine.length; i++) {
+                        if (FORBIDDEN_SYMBOLS.contains(String.valueOf(charLine[i]))) {
+                            endFuncName = i;
+                            break;
+                        }
+                    }
+
+                    int d = 0;
+                    int end = -1;
+
+                    for (int i = endFuncName; i < charLine.length; i++) {
+                        if (charLine[i] == '(') {
+                            d++;
+                        }
+                        if (charLine[i] == ')') {
+                            if (d == 1) {
+                                end = i;
+                                break;
+                            }
+                            d--;
+                        }
+                    }
+
+                    String name = inline.substring(startName, start);
+                    String funcName = inline.substring(start+1, endFuncName);
+                    String arguments = inline.substring(endFuncName+1, end);
+
+                    funcName = funcName.strip();
+                    arguments = arguments.strip();
+                    String r;
+
+                    if (arguments.isEmpty()) {
+                        r = "l" + funcName + "(" + name + ")";
+                    }
+                    else {
+                        r = "l" + funcName + "(" + name + ", " + arguments + ")";
+                    }
+
+                    inline = inline.substring(0, startName) + r + inline.substring(end + 1);
+                }
+                else {
+                    result.add(inline);
+                    break;
+                }
+            }
+        }
+
+
+        return result;
+    }
+
     public void compile(String inPath, String outPath) {
         List<String> clean = new ArrayList<>(Arrays.asList(readFileClean(inPath)));
 
@@ -542,6 +714,12 @@ public class Compiler {
         clean = parseMacros(clean);
 
         clean = inlineMacros(clean);
+
+        clean = setListSugar(clean);
+
+        clean = getListSugar(clean);
+
+        clean = functionListSugar(clean);
 
         // Debug Code
         System.out.println("Formatted code:");
@@ -1022,8 +1200,8 @@ public class Compiler {
             "pointer",
             "position",
             "sqrt",
+            "printNum",
             "print",
-            "ascii",
             "ia", // Iterate After
             "end",
             "floor",
@@ -1032,7 +1210,7 @@ public class Compiler {
             "time",
             "lnew",
             "lget",
-            "len",
+            "llen",
             "lamount",
             "ladd",
             "lremove",
@@ -1044,7 +1222,12 @@ public class Compiler {
             "lsort",
             "sleep",
             "random",
-            "clear"
+            "clear",
+            "lset",
+            "lprint",
+            "lprintNum",
+            "lprintSep",
+            "lsetTo"
     };
 
     public static final int[] BUILT_IN_FUNCTION_ARG_AMOUNT = new int[] {
@@ -1082,7 +1265,12 @@ public class Compiler {
             2,   // lsort
             1,   // sleep
             0,   // random
-            0    // clear
+            0,    // clear
+            3,   // listSet
+            1, //  lprint
+            1,  // lprintNum
+            3,   // lprintSep
+            -1  // lsetTo
     };
 
     public List<AssemblyOperation> getAssemblyOfBuiltIn(int functionId, Variable[] arguments) {
@@ -1130,11 +1318,13 @@ public class Compiler {
                     }
                 }
                 result.add(new AssemblyOperation(Type.PRINT, new Variable[]{getConstant(ASCII.NEW_LINE)}));
+                result.add(new AssemblyOperation(Type.UPDATE_CONSOLE, new Variable[] {}));
                 break;
             case 13:
                 // Print the chars and ending with NO new line!
                 for (Variable argument : arguments)
                     result.add(new AssemblyOperation(Type.PRINT, new Variable[]{argument}));
+                result.add(new AssemblyOperation(Type.UPDATE_CONSOLE, new Variable[] {}));
                 break;
             case 14: // Iterate After
                 Variable tempIterationAfterReturn = getTemporary();
@@ -1200,6 +1390,27 @@ public class Compiler {
             case 34: // clear
                 result.add(new AssemblyOperation(Type.CLEAR_CONSOLE, new Variable[] {}));
                 break;
+            case 35: // lset
+                result.add(new AssemblyOperation(Type.LIST_SET, new Variable[] {arguments[0], arguments[1], arguments[2]}));
+                break;
+            case 36: // lprint
+                result.add(new AssemblyOperation(Type.PRINT_VECTOR, new Variable[] {arguments[0]}));
+                result.add(new AssemblyOperation(Type.UPDATE_CONSOLE, new Variable[] {}));
+                break;
+            case 37: // lprintNum
+                result.add(new AssemblyOperation(Type.PRINT_VECTOR_NUMBERS, new Variable[] {arguments[0]}));
+                result.add(new AssemblyOperation(Type.UPDATE_CONSOLE, new Variable[] {}));
+                break;
+            case 38: // lprintSep
+                result.add(new AssemblyOperation(Type.PRINT_VECTOR_SEPARATED, new Variable[] {arguments[0], arguments[1], arguments[2]}));
+                result.add(new AssemblyOperation(Type.UPDATE_CONSOLE, new Variable[] {}));
+                break;
+            case 39: // lsetTo
+                result.add(new AssemblyOperation(Type.EMPTY_LIST, new Variable[] {arguments[0]}));
+                for (int i = 1; i < arguments.length; i++) {
+                    result.add(new AssemblyOperation(Type.ADD_LIST, new Variable[] {arguments[0], arguments[i]}));
+                }
+                break;
             default:
                 throw new CompilationException("Unknown built-in function with id: " + functionId);
         }
@@ -1207,6 +1418,32 @@ public class Compiler {
         return result;
     }
 
+    class AssemblyOperation {
+        Type type;
+        Variable[] vars;
+
+        public List<Integer> headers = new ArrayList<>();
+
+        @Override
+        public String toString() {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append(typeToString(type));
+
+            for (Variable variable : vars)
+                builder.append(" ").append(variable.memoryPosition);
+
+            if ((type == Type.PRINT || type == Type.PRINT_NUMBERS) && vars.length == 1)
+                builder.append(" 1");
+
+            return builder.toString();
+        }
+
+        public AssemblyOperation(Type type, Variable[] vars) {
+            this.type = type;
+            this.vars = vars;
+        }
+    }
 
     public enum Type {
         COPY,
@@ -1254,77 +1491,13 @@ public class Compiler {
         SORT_LIST,
         SLEEP,
         RANDOM,
-        CLEAR_CONSOLE
+        CLEAR_CONSOLE,
+        LIST_SET,
+        UPDATE_CONSOLE,
+        PRINT_VECTOR,
+        PRINT_VECTOR_NUMBERS,
+        PRINT_VECTOR_SEPARATED
     }
-
-    class AssemblyOperation {
-        Type type;
-        Variable[] vars;
-
-        public List<Integer> headers = new ArrayList<>();
-
-        @Override
-        public String toString() {
-            StringBuilder builder = new StringBuilder();
-
-            builder.append(typeToString(type));
-
-            for (Variable variable : vars)
-                builder.append(" ").append(variable.memoryPosition);
-
-            if ((type == Type.PRINT || type == Type.PRINT_NUMBERS) && vars.length == 1)
-                builder.append(" 1");
-
-            return builder.toString();
-        }
-
-        public AssemblyOperation(Type type, Variable[] vars) {
-            this.type = type;
-            this.vars = vars;
-        }
-    }
-
-    public Type fromBuiltInId(int id) {
-        return switch (id) {
-            case 0 -> Type.SIN;
-            case 1 -> Type.COS;
-            case 2 -> Type.TAN;
-            case 3 -> Type.ASIN;
-            case 4 -> Type.ACOS;
-            case 5 -> Type.ATAN2;
-            case 6 -> Type.POWER;  // "root"
-            case 7 -> Type.NOT;
-            case 8 -> Type.ITERATE;     // "it"
-            case 9 -> throw new CompilationException("Usage of discontinued pointer function!");
-            case 10 -> Type.POSITION;
-            case 11 -> Type.POWER; // "sqrt"
-            case 12 -> Type.PRINT_NUMBERS;
-            case 13 -> Type.PRINT; // "ascii"
-            case 16 -> Type.FLOOR;
-            case 17 -> Type.ROUND;
-            case 18 -> Type.CEIL;
-
-            default -> throw new CompilationException("Unknown built in function id: " + id);
-        };
-    }
-
-
-    public Type fromOP(OPType opType) {
-        return switch (opType) {
-            case POWER     -> Type.POWER;
-            case MULTIPLY  -> Type.MULTIPLY;
-            case DIVIDE    -> Type.DIVIDE;
-            case MOD       -> Type.MOD;
-            case ADD       -> Type.ADD;
-            case SUBTRACT  -> Type.SUBTRACT;
-            case AND       -> Type.AND;
-            case OR        -> Type.OR;
-            case IS_EQUAL  -> Type.IS_EQUAL;
-            case IS_GREATER, IS_SMALLER -> Type.IS_GREATER;
-            default        -> throw new IllegalArgumentException("Unsupported OPType: " + opType);
-        };
-    }
-
 
     private String typeToString(Type type) {
         switch (type) {
@@ -1466,7 +1639,63 @@ public class Compiler {
             case CLEAR_CONSOLE -> {
                 return "clearConsole";
             }
+            case LIST_SET -> {
+                return "listSet";
+            }
+            case UPDATE_CONSOLE -> {
+                return "updateConsole";
+            }
+            case PRINT_VECTOR -> {
+                return "printVector";
+            }
+            case PRINT_VECTOR_NUMBERS -> {
+                return "printVectorNumbers";
+            }
+            case PRINT_VECTOR_SEPARATED -> {
+                return "printVectorSeparated";
+            }
         }
         throw new CompilationException("Unknown operation type :(, " + type);
+    }
+
+    public Type fromBuiltInId(int id) {
+        return switch (id) {
+            case 0 -> Type.SIN;
+            case 1 -> Type.COS;
+            case 2 -> Type.TAN;
+            case 3 -> Type.ASIN;
+            case 4 -> Type.ACOS;
+            case 5 -> Type.ATAN2;
+            case 6 -> Type.POWER;  // "root"
+            case 7 -> Type.NOT;
+            case 8 -> Type.ITERATE;     // "it"
+            case 9 -> throw new CompilationException("Usage of discontinued pointer function!");
+            case 10 -> Type.POSITION;
+            case 11 -> Type.POWER; // "sqrt"
+            case 12 -> Type.PRINT_NUMBERS;
+            case 13 -> Type.PRINT; // "ascii"
+            case 16 -> Type.FLOOR;
+            case 17 -> Type.ROUND;
+            case 18 -> Type.CEIL;
+
+            default -> throw new CompilationException("Unknown built in function id: " + id);
+        };
+    }
+
+
+    public Type fromOP(OPType opType) {
+        return switch (opType) {
+            case POWER     -> Type.POWER;
+            case MULTIPLY  -> Type.MULTIPLY;
+            case DIVIDE    -> Type.DIVIDE;
+            case MOD       -> Type.MOD;
+            case ADD       -> Type.ADD;
+            case SUBTRACT  -> Type.SUBTRACT;
+            case AND       -> Type.AND;
+            case OR        -> Type.OR;
+            case IS_EQUAL  -> Type.IS_EQUAL;
+            case IS_GREATER, IS_SMALLER -> Type.IS_GREATER;
+            default        -> throw new IllegalArgumentException("Unsupported OPType: " + opType);
+        };
     }
 }

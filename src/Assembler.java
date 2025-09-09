@@ -55,7 +55,11 @@ public class Assembler {
             "sleep",        // 44
             "random",       // 45
             "clearConsole",      // 46
-            "listSet"
+            "listSet",       // 47
+            "updateConsole",  // 48
+            "printVector",       // 49
+            "printVectorNumbers", // 50
+            "printVectorSeparated" // 51
     };
 
     public static final int[] OPERATION_LENGTHS = {
@@ -105,7 +109,12 @@ public class Assembler {
             2,  // sort(p1, p2)                   -> 43
             1,  // sleep(p1)                        -> 44
             1,  // random(p1)                       -> 45
-            0   // clearConsole()                    -> 46
+            0,  // clearConsole()                    -> 46
+            3,   // listSet
+            0,   // updateConsole
+            1,   // "printVector"
+            1,   // "printVectorNumbers"
+            3,   // "printVectorSeparated"
     };
 
     public static void assemble(String assemblyPath, String outputPath) throws IOException {

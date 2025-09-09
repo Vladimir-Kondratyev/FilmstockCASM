@@ -145,6 +145,15 @@ public class ArithmeticCompiler {
 
                             continue;
                         }
+                        else if (s.charAt(i+1) == '.'){
+                            sugared.append(ASCII.toASCII('.'));
+                            i++;
+
+                            if (i < s.length() - 1)
+                                sugared.append(",");
+
+                            continue;
+                        }
                     }
                     sugared.append(ASCII.toASCII(s.charAt(i)));
                     if (i < s.length() - 1)
@@ -183,6 +192,12 @@ public class ArithmeticCompiler {
                             }
                             else if (stripped.charAt(c+2) == '=') {
                                 int asciiNum = ASCII.toASCII('=');
+
+                                stripped = stripped.substring(0, c) + asciiNum + stripped.substring(c+4);
+                                break;
+                            }
+                            else if (stripped.charAt(c+2) == '.') {
+                                int asciiNum = ASCII.toASCII('.');
 
                                 stripped = stripped.substring(0, c) + asciiNum + stripped.substring(c+4);
                                 break;
