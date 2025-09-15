@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 
 public class Compiler {
-    private static final String FORBIDDEN_SYMBOLS = "$#@=&|?><^*/+\\-%(){};,[]. ";
+    private static final String FORBIDDEN_SYMBOLS = "_$#@=&|?><^*/+\\-%(){};,[]. ";
     private static final String NUMERIC = "1234567890.";
     // private static final String MACRO_FORBIDDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};, ";
 
@@ -97,6 +97,11 @@ public class Compiler {
                 compiledMacro.set(l, line);
             }
             
+        }
+
+        String replace = macroName.toUpperCase() + "MACRO";
+        for (int i = 0; i < compiledMacro.size(); i++) {
+            compiledMacro.set(i, compiledMacro.get(i).replace("__", replace));
         }
 
         return compiledMacro;
@@ -493,7 +498,7 @@ public class Compiler {
                     String[] separated = noHash.split("\\(");
 
                     String name = separated[0].replace(" ", "");
-                    String joined = String.join("", Arrays.copyOfRange(separated, 1, separated.length));
+                    String joined = String.join("(", Arrays.copyOfRange(separated, 1, separated.length));
 
                     String parsedArgs = joined.replace(" ", "");
                     String[] arguments = parsedArgs.substring(0, parsedArgs.length()-1).split(",");
@@ -546,7 +551,7 @@ public class Compiler {
             if (firstPart.contains("[") && line.contains("=")) {
                 String[] seprarated = firstPart.split("\\[");
                 seprarated[0] = seprarated[0].strip();
-                seprarated[1] = seprarated[1].strip();
+                seprarated[1] = String.join("[", Arrays.copyOfRange(seprarated, 1, seprarated.length)).strip();
 
                 seprarated[1] = seprarated[1].substring(0, seprarated[1].length()-1);
 
@@ -1227,7 +1232,22 @@ public class Compiler {
             "lprint",
             "lprintNum",
             "lprintSep",
-            "lsetTo"
+            "lsetTo",
+            "setColor",
+            "setPosition",
+            "setTextSize",
+            "ldrawTriangles",
+            "ldrawText",
+            "dStart",
+            "dEnd",
+            "isPressed",
+            "pi",
+            "isMousePressed",
+            "mouseX",
+            "mouseY",
+            "getScroll",
+            "width",
+            "height"
     };
 
     public static final int[] BUILT_IN_FUNCTION_ARG_AMOUNT = new int[] {
@@ -1270,7 +1290,22 @@ public class Compiler {
             1, //  lprint
             1,  // lprintNum
             3,   // lprintSep
-            -1  // lsetTo
+            -1,  // lsetTo
+            4,    // "setActiveColor",
+            2,    // "setCursorPosition",
+            1,    // "setTextSize",
+            1,    // "ldrawTriangles",
+            1,    // "ldrawText",
+            0,    // "beginDrawing",
+            0,    // "endDrawing",
+            1,    // "isPressed"
+            0,     // "pi"
+            1,    //"isMousePressed",
+            0,    //"mouseX",
+            0,    //"mouseY",
+            0,    //"getScroll",
+            0,    //"width",
+            0    //"height"
     };
 
     public List<AssemblyOperation> getAssemblyOfBuiltIn(int functionId, Variable[] arguments) {
@@ -1411,6 +1446,66 @@ public class Compiler {
                     result.add(new AssemblyOperation(Type.ADD_LIST, new Variable[] {arguments[0], arguments[i]}));
                 }
                 break;
+            case 40: // set Active Color
+                double[] constants = {256, 65536, 16777216};
+
+                for (int i = 1; i < 4; i++) {
+                    result.add(new AssemblyOperation(Type.MULTIPLY, new Variable[] {arguments[i], getConstant(constants[i-1]), arguments[i]}));
+                    result.add(new AssemblyOperation(Type.ADD, new Variable[] {arguments[i], arguments[0], arguments[0]}));
+                }
+
+                result.add(new AssemblyOperation(Type.SET_COLOR, new Variable[] {arguments[0]}));
+                break;
+            case 41: // "setCursorPosition",
+                result.add(new AssemblyOperation(Type.SET_POSITION, new Variable[] {arguments[0], arguments[1]}));
+                break;
+            case 42: // "setTextSize",
+                result.add(new AssemblyOperation(Type.SET_TEXT_SIZE, new Variable[] {arguments[0]}));
+                break;
+            case 43:
+                result.add(new AssemblyOperation(Type.DRAW_TRIANGLES, new Variable[] {arguments[0]}));
+                break;
+            case 44:
+                result.add(new AssemblyOperation(Type.DRAW_TEXT, new Variable[] {arguments[0]}));
+                break;
+            case 45:
+                result.add(new AssemblyOperation(Type.BEGIN_DRAWING, new Variable[] {}));
+                break;
+            case 46:
+                result.add(new AssemblyOperation(Type.END_DRAWING, new Variable[] {}));
+                break;
+            case 47:
+                Variable tempIsPressed = getTemporary();
+
+                result.add(new AssemblyOperation(Type.IS_PRESSED, new Variable[] {arguments[0], tempIsPressed}));
+
+                arguments[0] = tempIsPressed;
+                break;
+            case 48: // pi()
+                Variable tempPi = getTemporary();
+
+                result.add(new AssemblyOperation(Type.COPY, new Variable[] {getConstant(Math.PI), tempPi}));
+
+                arguments[0] = tempPi;
+                break;
+            case 49: // is mouse pressed
+                result.add(new AssemblyOperation(Type.MOUSE_PRESSED, new Variable[] {arguments[0], arguments[0]}));
+                break;
+            case 50: // mouse x
+                result.add(new AssemblyOperation(Type.GET_MOUSE_X, new Variable[] {arguments[0]}));
+                break;
+            case 51: // mouse y
+                result.add(new AssemblyOperation(Type.GET_MOUSE_Y, new Variable[] {arguments[0]}));
+                break;
+            case 52: // get Scroll
+                result.add(new AssemblyOperation(Type.GET_SCROLL, new Variable[] {arguments[0]}));
+                break;
+            case 53: // Width
+                result.add(new AssemblyOperation(Type.GET_WIDTH, new Variable[] {arguments[0]}));
+                break;
+            case 54: // Height
+                result.add(new AssemblyOperation(Type.GET_HEIGHT, new Variable[] {arguments[0]}));
+                break;
             default:
                 throw new CompilationException("Unknown built-in function with id: " + functionId);
         }
@@ -1496,7 +1591,21 @@ public class Compiler {
         UPDATE_CONSOLE,
         PRINT_VECTOR,
         PRINT_VECTOR_NUMBERS,
-        PRINT_VECTOR_SEPARATED
+        PRINT_VECTOR_SEPARATED,
+        SET_COLOR,
+        SET_POSITION,
+        SET_TEXT_SIZE,
+        DRAW_TRIANGLES,
+        DRAW_TEXT,
+        BEGIN_DRAWING,
+        END_DRAWING,
+        IS_PRESSED,
+        MOUSE_PRESSED,
+        GET_MOUSE_X,
+        GET_MOUSE_Y,
+        GET_SCROLL,
+        GET_WIDTH,
+        GET_HEIGHT
     }
 
     private String typeToString(Type type) {
@@ -1653,6 +1762,48 @@ public class Compiler {
             }
             case PRINT_VECTOR_SEPARATED -> {
                 return "printVectorSeparated";
+            }
+            case SET_COLOR -> {
+                return "setColor";
+            }
+            case SET_POSITION -> {
+                return "setPosition";
+            }
+            case SET_TEXT_SIZE -> {
+                return "setTextSize";
+            }
+            case DRAW_TRIANGLES -> {
+                return "drawTriangles";
+            }
+            case DRAW_TEXT -> {
+                return "drawText";
+            }
+            case BEGIN_DRAWING -> {
+                return "beginDrawing";
+            }
+            case END_DRAWING -> {
+                return "endDrawing";
+            }
+            case IS_PRESSED -> {
+                return "isPressed";
+            }
+            case MOUSE_PRESSED -> {
+                return "mousePressed";
+            }
+            case GET_MOUSE_X -> {
+                return "getMouseX";
+            }
+            case GET_MOUSE_Y -> {
+                return "getMouseY";
+            }
+            case GET_SCROLL -> {
+                return "getScroll";
+            }
+            case GET_WIDTH -> {
+                return "getWidth";
+            }
+            case GET_HEIGHT -> {
+                return "getHeight";
             }
         }
         throw new CompilationException("Unknown operation type :(, " + type);

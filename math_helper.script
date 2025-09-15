@@ -1,0 +1,36 @@
+// Sets $save to the minimum of the two arguments
+#macro min(a, b, save) {
+    if ($a < $b) {
+        $save = $a
+    }
+    else {
+        $save = $b
+    }
+}
+
+// Sets $save to the maximum of the two arguments
+#macro max(a, b, save) {
+    if ($a > $b) {
+        $save = $a
+    }
+    else {
+        $save = $b
+    }
+}
+
+#macro length(a, b, save) {
+    $save = sqrt( ($a)*($a)+($b)*($b) )
+}
+
+#macro distance(ax, ay, bx, by, save) {
+    #length($ax - $bx, $ay - $by, $save)
+}
+
+#macro clamp(value, min, max) {
+    if ($value < $min) {
+        $value = $min
+    }
+    if ($value > $max) {
+        $value = $max
+    }
+}

@@ -1,18 +1,137 @@
-length = 13
-set 7 72.0
-set 8 101.0
-set 9 108.0
-set 10 111.0
-set 11 46.0
+length = 170
+set 41 108
+set 42 108
+set 43 94
+set 44 171
+set 45 171
+set 46 136
+set 47 1264
+set 48 1264
+set 49 216
+set 50 458
+set 51 458
+set 52 221
+set 53 271
+set 54 291
+set 55 303
+set 56 325
+set 57 371
+set 58 397
+set 59 411
+set 60 439
+set 61 464
+set 62 468
+set 63 473
+set 64 477
+set 65 482
+set 66 486
+set 67 491
+set 68 495
+set 69 500
+set 70 648
+set 71 648
+set 72 648
+set 73 502
+set 74 565
+set 75 567
+set 76 573
+set 77 575
+set 78 653
+set 79 805
+set 80 805
+set 81 805
+set 82 655
+set 83 718
+set 84 720
+set 85 726
+set 86 728
+set 87 1260
+set 88 1260
+set 89 937
+set 90 1010
+set 91 1014
+set 92 1233
+set 93 1233
+set 94 1036
+set 95 255.0
+set 96 0.0
+set 97 165.0
+set 98 50.0
+set 99 128.0
+set 100 100.0
+set 101 25.0
+set 102 6.0
+set 103 9.81
+set 104 0.002
+set 105 0.995
+set 106 0.7
+set 107 20.0
+set 108 1.0
+set 109 0.2
+set 110 10.0
+set 111 0.8
+set 112 2.0
+set 113 5.0
+set 114 0.5
+set 115 256.0
+set 116 65536.0
+set 117 1.6777216E7
+set 118 87.0
+set 119 83.0
+set 120 65.0
+set 121 68.0
+set 122 10000.0
+set 123 30.0
+set 124 0.4
+set 125 3.141592653589793
+set 126 3.0
+set 127 4.0
+set 128 200.0
+set 129 33.0
+set 130 16.0
 newList 0
-copy 0 12
-copy 12 0
-copy 7 1
-copy 8 2
-copy 9 3
-copy 9 4
-copy 10 5
-copy 11 6
+copy 0 131
+copy 131 0
+copy 95 1
+copy 96 2
+copy 95 3
+copy 95 4
+copy 96 5
+copy 95 6
+copy 95 7
+copy 95 8
+copy 95 9
+copy 95 10
+copy 96 11
+copy 95 12
+copy 95 13
+copy 96 14
+copy 96 15
+copy 95 16
+copy 96 17
+copy 95 18
+copy 96 19
+copy 95 20
+copy 95 21
+copy 97 22
+copy 96 23
+copy 95 24
+copy 95 25
+copy 98 26
+copy 96 27
+copy 95 28
+copy 96 29
+copy 95 30
+copy 99 31
+copy 95 32
+copy 96 33
+copy 95 34
+copy 95 35
+copy 96 36
+copy 95 37
+copy 95 38
+copy 95 39
+copy 95 40
 emptyList 0
 addList 0 1
 addList 0 2
@@ -20,6 +139,1217 @@ addList 0 3
 addList 0 4
 addList 0 5
 addList 0 6
-copy 12 0
-printVector 0
-updateConsole
+addList 0 7
+addList 0 8
+addList 0 9
+addList 0 10
+addList 0 11
+addList 0 12
+addList 0 13
+addList 0 14
+addList 0 15
+addList 0 16
+addList 0 17
+addList 0 18
+addList 0 19
+addList 0 20
+addList 0 21
+addList 0 22
+addList 0 23
+addList 0 24
+addList 0 25
+addList 0 26
+addList 0 27
+addList 0 28
+addList 0 29
+addList 0 30
+addList 0 31
+addList 0 32
+addList 0 33
+addList 0 34
+addList 0 35
+addList 0 36
+addList 0 37
+addList 0 38
+addList 0 39
+addList 0 40
+newList 0
+copy 0 132
+copy 100 0
+copy 0 133
+newList 0
+copy 0 134
+copy 101 0
+copy 0 135
+copy 96 0
+copy 0 136
+copy 136 0
+copy 102 1
+copy 135 2
+multiply 1 2 1
+greaterThan 1 0 0
+not 0 0
+copy 0 1
+jumpIf 1 41
+copy 134 0
+copy 96 1
+addList 0 1
+iterate 136
+copy 136 0
+jump 43
+copy 103 0
+copy 0 137
+copy 104 0
+copy 0 138
+copy 105 0
+copy 0 139
+copy 106 0
+copy 0 140
+copy 98 0
+copy 0 133
+copy 107 0
+copy 0 141
+copy 107 0
+copy 0 142
+copy 108 0
+copy 0 143
+copy 108 0
+copy 0 144
+copy 109 0
+copy 0 145
+copy 110 0
+copy 0 146
+newList 0
+copy 0 147
+newList 0
+copy 0 148
+copy 96 0
+copy 0 136
+copy 136 0
+copy 146 1
+greaterThan 1 0 0
+not 0 0
+copy 0 1
+jumpIf 1 44
+copy 147 0
+copy 136 1
+copy 111 2
+multiply 1 2 1
+copy 112 3
+add 1 3 1
+addList 0 1
+copy 147 0
+copy 113 1
+random 2
+multiply 1 2 1
+addList 0 1
+copy 148 0
+random 1
+copy 114 2
+subtract 1 2 1
+copy 109 3
+multiply 1 3 1
+addList 0 1
+copy 148 0
+random 1
+copy 114 2
+subtract 1 2 1
+copy 109 3
+multiply 1 3 1
+addList 0 1
+iterate 136
+copy 136 0
+jump 46
+beginDrawing
+getHeight 0
+copy 0 149
+getWidth 0
+copy 0 150
+copy 132 0
+copy 96 1
+copy 96 2
+copy 96 3
+copy 149 4
+copy 150 5
+copy 96 6
+copy 150 7
+copy 149 8
+copy 150 9
+copy 96 10
+copy 96 11
+copy 149 12
+emptyList 0
+addList 0 1
+addList 0 2
+addList 0 3
+addList 0 4
+addList 0 5
+addList 0 6
+addList 0 7
+addList 0 8
+addList 0 9
+addList 0 10
+addList 0 11
+addList 0 12
+copy 96 0
+copy 96 1
+copy 96 2
+copy 95 3
+multiply 1 115 1
+add 1 0 0
+multiply 2 116 2
+add 2 0 0
+multiply 3 117 3
+add 3 0 0
+setColor 0
+copy 132 0
+drawTriangles 0
+endDrawing
+copy 96 0
+copy 0 0
+jumpIf 0 47
+copy 96 0
+copy 0 151
+copy 151 0
+copy 146 1
+greaterThan 1 0 0
+not 0 0
+copy 0 1
+jumpIf 1 50
+copy 148 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 148 4
+copy 151 5
+copy 112 6
+multiply 5 6 5
+copy 108 7
+add 5 7 5
+copyFromList 4 5 8
+copy 137 9
+copy 138 10
+multiply 9 10 9
+add 8 9 8
+listSet 0 1 8
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 148 3
+copy 151 4
+copy 112 5
+multiply 4 5 4
+copyFromList 3 4 6
+copy 147 7
+copy 151 8
+copy 112 9
+multiply 8 9 8
+copyFromList 7 8 10
+add 6 10 6
+listSet 0 1 6
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copyFromList 0 1 3
+copy 108 4
+greaterThan 4 3 3
+copy 3 0
+jumpIf 0 53
+jump 54
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+listSet 0 1 3
+copy 148 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 96 3
+copy 148 4
+copy 151 5
+copy 112 6
+multiply 5 6 5
+copyFromList 4 5 7
+copy 140 8
+multiply 7 8 7
+subtract 3 7 3
+listSet 0 1 3
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copyFromList 0 1 3
+copy 141 4
+copy 108 5
+subtract 4 5 4
+greaterThan 3 4 3
+copy 3 0
+jumpIf 0 55
+jump 56
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 141 3
+copy 108 4
+subtract 3 4 3
+listSet 0 1 3
+copy 148 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 96 3
+copy 148 4
+copy 151 5
+copy 112 6
+multiply 5 6 5
+copyFromList 4 5 7
+copy 140 8
+multiply 7 8 7
+subtract 3 7 3
+listSet 0 1 3
+copy 148 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 148 3
+copy 151 4
+copy 112 5
+multiply 4 5 4
+copyFromList 3 4 6
+copy 139 7
+multiply 6 7 6
+listSet 0 1 6
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 148 4
+copy 151 5
+copy 112 6
+multiply 5 6 5
+copy 108 7
+add 5 7 5
+copyFromList 4 5 8
+copy 147 9
+copy 151 10
+copy 112 11
+multiply 10 11 10
+copy 108 12
+add 10 12 10
+copyFromList 9 10 13
+add 8 13 8
+listSet 0 1 8
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copyFromList 0 1 4
+copy 108 5
+greaterThan 5 4 4
+copy 4 0
+jumpIf 0 57
+jump 58
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 108 4
+listSet 0 1 4
+copy 148 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 96 4
+copy 148 5
+copy 151 6
+copy 112 7
+multiply 6 7 6
+copy 108 8
+add 6 8 6
+copyFromList 5 6 9
+copy 140 10
+multiply 9 10 9
+subtract 4 9 4
+listSet 0 1 4
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copyFromList 0 1 4
+copy 142 5
+copy 108 6
+subtract 5 6 5
+greaterThan 4 5 4
+copy 4 0
+jumpIf 0 59
+jump 60
+copy 147 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 142 4
+copy 108 5
+subtract 4 5 4
+listSet 0 1 4
+copy 148 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 96 4
+copy 148 5
+copy 151 6
+copy 112 7
+multiply 6 7 6
+copy 108 8
+add 6 8 6
+copyFromList 5 6 9
+copy 140 10
+multiply 9 10 9
+subtract 4 9 4
+listSet 0 1 4
+copy 148 0
+copy 151 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 148 4
+copy 151 5
+copy 112 6
+multiply 5 6 5
+copy 108 7
+add 5 7 5
+copyFromList 4 5 8
+copy 139 9
+multiply 8 9 8
+listSet 0 1 8
+iterate 151
+copy 151 0
+jump 52
+beginDrawing
+copy 118 0
+isPressed 0 1
+copy 1 0
+jumpIf 0 61
+jump 62
+copy 144 0
+copy 145 1
+add 0 1 0
+copy 0 144
+copy 119 0
+isPressed 0 1
+copy 1 0
+jumpIf 0 63
+jump 64
+copy 144 0
+copy 145 1
+subtract 0 1 0
+copy 0 144
+copy 120 0
+isPressed 0 1
+copy 1 0
+jumpIf 0 65
+jump 66
+copy 143 0
+copy 145 1
+add 0 1 0
+copy 0 143
+copy 121 0
+isPressed 0 1
+copy 1 0
+jumpIf 0 67
+jump 68
+copy 143 0
+copy 145 1
+subtract 0 1 0
+copy 0 143
+copy 96 0
+mousePressed 0 0
+copy 0 0
+jumpIf 0 69
+jump 70
+copy 96 0
+copy 0 152
+copy 152 0
+copy 146 1
+greaterThan 1 0 0
+not 0 0
+copy 0 1
+jumpIf 1 71
+copy 96 0
+copy 0 153
+copy 147 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copyFromList 0 1 3
+getMouseX 4
+copy 133 5
+divide 4 5 4
+subtract 3 4 3
+copy 147 6
+copy 152 7
+copy 112 8
+multiply 7 8 7
+copyFromList 6 7 9
+getMouseX 10
+copy 133 11
+divide 10 11 10
+subtract 9 10 9
+multiply 3 9 3
+copy 147 12
+copy 152 13
+copy 112 14
+multiply 13 14 13
+copy 108 15
+add 13 15 13
+copyFromList 12 13 16
+getMouseY 17
+copy 133 18
+divide 17 18 17
+subtract 16 17 16
+copy 147 19
+copy 152 20
+copy 112 21
+multiply 20 21 20
+copy 108 22
+add 20 22 20
+copyFromList 19 20 23
+getMouseY 24
+copy 133 25
+divide 24 25 24
+subtract 23 24 23
+multiply 16 23 16
+add 3 16 3
+pow 3 114 3
+copy 3 153
+copy 153 0
+copy 108 1
+multiply 0 1 0
+copy 0 153
+copy 153 0
+copy 114 1
+greaterThan 1 0 0
+copy 0 0
+jumpIf 0 74
+jump 75
+copy 114 0
+copy 0 153
+copy 153 0
+copy 122 1
+greaterThan 0 1 0
+copy 0 0
+jumpIf 0 76
+jump 77
+copy 122 0
+copy 0 153
+copy 147 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copyFromList 0 1 3
+getMouseX 4
+copy 133 5
+divide 4 5 4
+subtract 3 4 3
+copy 3 154
+copy 147 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copyFromList 0 1 4
+getMouseY 5
+copy 133 6
+divide 5 6 5
+subtract 4 5 4
+copy 4 155
+copy 154 0
+copy 153 1
+copy 112 2
+pow 1 2 1
+divide 0 1 0
+copy 0 154
+copy 155 0
+copy 153 1
+copy 112 2
+pow 1 2 1
+divide 0 1 0
+copy 0 155
+copy 148 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copy 148 3
+copy 152 4
+copy 112 5
+multiply 4 5 4
+copyFromList 3 4 6
+copy 154 7
+copy 138 8
+multiply 7 8 7
+copy 100 9
+multiply 7 9 7
+add 6 7 6
+listSet 0 1 6
+copy 148 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 148 4
+copy 152 5
+copy 112 6
+multiply 5 6 5
+copy 108 7
+add 5 7 5
+copyFromList 4 5 8
+copy 155 9
+copy 138 10
+multiply 9 10 9
+copy 100 11
+multiply 9 11 9
+add 8 9 8
+listSet 0 1 8
+iterate 152
+copy 152 0
+jump 73
+copy 108 0
+mousePressed 0 0
+copy 0 0
+jumpIf 0 78
+jump 79
+copy 96 0
+copy 0 152
+copy 152 0
+copy 146 1
+greaterThan 1 0 0
+not 0 0
+copy 0 1
+jumpIf 1 80
+copy 96 0
+copy 0 153
+copy 147 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copyFromList 0 1 3
+getMouseX 4
+copy 133 5
+divide 4 5 4
+subtract 3 4 3
+copy 147 6
+copy 152 7
+copy 112 8
+multiply 7 8 7
+copyFromList 6 7 9
+getMouseX 10
+copy 133 11
+divide 10 11 10
+subtract 9 10 9
+multiply 3 9 3
+copy 147 12
+copy 152 13
+copy 112 14
+multiply 13 14 13
+copy 108 15
+add 13 15 13
+copyFromList 12 13 16
+getMouseY 17
+copy 133 18
+divide 17 18 17
+subtract 16 17 16
+copy 147 19
+copy 152 20
+copy 112 21
+multiply 20 21 20
+copy 108 22
+add 20 22 20
+copyFromList 19 20 23
+getMouseY 24
+copy 133 25
+divide 24 25 24
+subtract 23 24 23
+multiply 16 23 16
+add 3 16 3
+pow 3 114 3
+copy 3 153
+copy 153 0
+copy 114 1
+multiply 0 1 0
+copy 0 153
+copy 153 0
+copy 114 1
+greaterThan 1 0 0
+copy 0 0
+jumpIf 0 83
+jump 84
+copy 114 0
+copy 0 153
+copy 153 0
+copy 122 1
+greaterThan 0 1 0
+copy 0 0
+jumpIf 0 85
+jump 86
+copy 122 0
+copy 0 153
+copy 147 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copyFromList 0 1 3
+getMouseX 4
+copy 133 5
+divide 4 5 4
+subtract 3 4 3
+copy 3 154
+copy 147 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copyFromList 0 1 4
+getMouseY 5
+copy 133 6
+divide 5 6 5
+subtract 4 5 4
+copy 4 155
+copy 154 0
+copy 153 1
+copy 112 2
+pow 1 2 1
+divide 0 1 0
+copy 0 154
+copy 155 0
+copy 153 1
+copy 112 2
+pow 1 2 1
+divide 0 1 0
+copy 0 155
+copy 148 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copy 148 3
+copy 152 4
+copy 112 5
+multiply 4 5 4
+copyFromList 3 4 6
+copy 154 7
+copy 138 8
+multiply 7 8 7
+copy 96 9
+copy 123 10
+subtract 9 10 9
+multiply 7 9 7
+add 6 7 6
+listSet 0 1 6
+copy 148 0
+copy 152 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 148 4
+copy 152 5
+copy 112 6
+multiply 5 6 5
+copy 108 7
+add 5 7 5
+copyFromList 4 5 8
+copy 155 9
+copy 138 10
+multiply 9 10 9
+copy 96 11
+copy 123 12
+subtract 11 12 11
+multiply 9 11 9
+add 8 9 8
+listSet 0 1 8
+iterate 152
+copy 152 0
+jump 82
+getHeight 0
+copy 0 149
+getWidth 0
+copy 0 150
+copy 132 0
+copy 96 1
+copy 96 2
+copy 96 3
+copy 149 4
+copy 150 5
+copy 96 6
+copy 150 7
+copy 149 8
+copy 150 9
+copy 96 10
+copy 96 11
+copy 149 12
+emptyList 0
+addList 0 1
+addList 0 2
+addList 0 3
+addList 0 4
+addList 0 5
+addList 0 6
+addList 0 7
+addList 0 8
+addList 0 9
+addList 0 10
+addList 0 11
+addList 0 12
+copy 96 0
+copy 96 1
+copy 96 2
+copy 95 3
+multiply 1 115 1
+add 1 0 0
+multiply 2 116 2
+add 2 0 0
+multiply 3 117 3
+add 3 0 0
+setColor 0
+copy 132 0
+drawTriangles 0
+copy 132 0
+copy 143 1
+copy 133 2
+multiply 1 2 1
+copy 144 3
+copy 133 4
+multiply 3 4 3
+copy 143 5
+copy 133 6
+multiply 5 6 5
+copy 144 7
+copy 133 8
+multiply 7 8 7
+copy 142 9
+copy 133 10
+multiply 9 10 9
+add 7 9 7
+copy 141 11
+copy 133 12
+multiply 11 12 11
+copy 143 13
+copy 133 14
+multiply 13 14 13
+add 11 13 11
+copy 144 15
+copy 133 16
+multiply 15 16 15
+copy 141 17
+copy 133 18
+multiply 17 18 17
+copy 143 19
+copy 133 20
+multiply 19 20 19
+add 17 19 17
+copy 142 21
+copy 133 22
+multiply 21 22 21
+copy 144 23
+copy 133 24
+multiply 23 24 23
+add 21 23 21
+copy 141 25
+copy 133 26
+multiply 25 26 25
+copy 143 27
+copy 133 28
+multiply 27 28 27
+add 25 27 25
+copy 144 29
+copy 133 30
+multiply 29 30 29
+copy 143 31
+copy 133 32
+multiply 31 32 31
+copy 142 33
+copy 133 34
+multiply 33 34 33
+copy 144 35
+copy 133 36
+multiply 35 36 35
+add 33 35 33
+emptyList 0
+addList 0 1
+addList 0 3
+addList 0 5
+addList 0 7
+addList 0 11
+addList 0 15
+addList 0 17
+addList 0 21
+addList 0 25
+addList 0 29
+addList 0 31
+addList 0 33
+copy 123 0
+copy 123 1
+copy 123 2
+copy 95 3
+multiply 1 115 1
+add 1 0 0
+multiply 2 116 2
+add 2 0 0
+multiply 3 117 3
+add 3 0 0
+setColor 0
+copy 132 0
+drawTriangles 0
+copy 96 0
+copy 0 156
+copy 156 0
+copy 146 1
+greaterThan 1 0 0
+not 0 0
+copy 0 1
+jumpIf 1 87
+copy 148 0
+copy 156 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copyFromList 0 1 4
+copy 148 5
+copy 156 6
+copy 112 7
+multiply 6 7 6
+copyFromList 5 6 8
+atan2 4 8 4
+copy 4 157
+copy 148 0
+copy 156 1
+copy 112 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copyFromList 0 1 4
+copy 148 5
+copy 156 6
+copy 112 7
+multiply 6 7 6
+copy 108 8
+add 6 8 6
+copyFromList 5 6 9
+multiply 4 9 4
+copy 148 10
+copy 156 11
+copy 112 12
+multiply 11 12 11
+copyFromList 10 11 13
+copy 148 14
+copy 156 15
+copy 112 16
+multiply 15 16 15
+copyFromList 14 15 17
+multiply 13 17 13
+add 4 13 4
+pow 4 114 4
+copy 4 158
+copy 108 0
+copy 158 1
+copy 124 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+divide 0 1 0
+copy 0 159
+copy 108 0
+copy 159 1
+divide 0 1 0
+copy 0 160
+copy 96 0
+copy 0 161
+copy 158 0
+copy 111 1
+divide 0 1 0
+copy 108 2
+greaterThan 2 0 0
+copy 0 0
+jumpIf 0 90
+copy 108 0
+copy 0 161
+jump 91
+copy 158 0
+copy 111 1
+divide 0 1 0
+copy 0 161
+copy 125 1
+copy 112 2
+multiply 1 2 1
+copy 135 3
+divide 1 3 1
+copy 1 162
+copy 96 0
+copy 0 163
+copy 163 0
+sin 0 0
+copy 0 164
+copy 163 0
+cos 0 0
+copy 0 165
+copy 157 0
+sin 0 0
+copy 0 166
+copy 157 0
+cos 0 0
+copy 0 167
+copy 96 0
+copy 0 168
+copy 168 0
+copy 135 1
+greaterThan 1 0 0
+not 0 0
+copy 0 1
+jumpIf 1 92
+copy 134 0
+copy 168 1
+copy 102 2
+multiply 1 2 1
+copy 96 3
+add 1 3 1
+copy 96 4
+add 1 4 1
+copy 147 5
+copy 156 6
+copy 112 7
+multiply 6 7 6
+copyFromList 5 6 8
+copy 143 9
+add 8 9 8
+copy 133 10
+multiply 8 10 8
+listSet 0 1 8
+copy 134 0
+copy 168 1
+copy 102 2
+multiply 1 2 1
+copy 108 3
+add 1 3 1
+copy 96 4
+add 1 4 1
+copy 147 5
+copy 156 6
+copy 112 7
+multiply 6 7 6
+copy 108 8
+add 6 8 6
+copyFromList 5 6 9
+copy 144 10
+add 9 10 9
+copy 133 11
+multiply 9 11 9
+listSet 0 1 9
+copy 134 0
+copy 168 1
+copy 102 2
+multiply 1 2 1
+copy 112 3
+add 1 3 1
+copy 96 4
+add 1 4 1
+copy 147 5
+copy 156 6
+copy 112 7
+multiply 6 7 6
+copyFromList 5 6 8
+copy 143 9
+add 8 9 8
+copy 133 10
+multiply 8 10 8
+copy 165 11
+copy 133 12
+multiply 11 12 11
+copy 160 13
+multiply 11 13 11
+copy 167 14
+multiply 11 14 11
+add 8 11 8
+copy 164 15
+copy 133 16
+multiply 15 16 15
+copy 159 17
+multiply 15 17 15
+copy 166 18
+multiply 15 18 15
+subtract 8 15 8
+listSet 0 1 8
+copy 134 0
+copy 168 1
+copy 102 2
+multiply 1 2 1
+copy 126 3
+add 1 3 1
+copy 96 4
+add 1 4 1
+copy 147 5
+copy 156 6
+copy 112 7
+multiply 6 7 6
+copy 108 8
+add 6 8 6
+copyFromList 5 6 9
+copy 144 10
+add 9 10 9
+copy 133 11
+multiply 9 11 9
+copy 165 12
+copy 133 13
+multiply 12 13 12
+copy 160 14
+multiply 12 14 12
+copy 166 15
+multiply 12 15 12
+add 9 12 9
+copy 164 16
+copy 133 17
+multiply 16 17 16
+copy 159 18
+multiply 16 18 16
+copy 167 19
+multiply 16 19 16
+add 9 16 9
+listSet 0 1 9
+copy 163 0
+copy 162 1
+subtract 0 1 0
+copy 0 163
+copy 163 0
+sin 0 0
+copy 0 164
+copy 163 0
+cos 0 0
+copy 0 165
+copy 134 0
+copy 168 1
+copy 102 2
+multiply 1 2 1
+copy 127 3
+add 1 3 1
+copy 96 4
+add 1 4 1
+copy 147 5
+copy 156 6
+copy 112 7
+multiply 6 7 6
+copyFromList 5 6 8
+copy 143 9
+add 8 9 8
+copy 133 10
+multiply 8 10 8
+copy 165 11
+copy 133 12
+multiply 11 12 11
+copy 160 13
+multiply 11 13 11
+copy 167 14
+multiply 11 14 11
+add 8 11 8
+copy 164 15
+copy 133 16
+multiply 15 16 15
+copy 159 17
+multiply 15 17 15
+copy 166 18
+multiply 15 18 15
+subtract 8 15 8
+listSet 0 1 8
+copy 134 0
+copy 168 1
+copy 102 2
+multiply 1 2 1
+copy 113 3
+add 1 3 1
+copy 96 4
+add 1 4 1
+copy 147 5
+copy 156 6
+copy 112 7
+multiply 6 7 6
+copy 108 8
+add 6 8 6
+copyFromList 5 6 9
+copy 144 10
+add 9 10 9
+copy 133 11
+multiply 9 11 9
+copy 165 12
+copy 133 13
+multiply 12 13 12
+copy 160 14
+multiply 12 14 12
+copy 166 15
+multiply 12 15 12
+add 9 12 9
+copy 164 16
+copy 133 17
+multiply 16 17 16
+copy 159 18
+multiply 16 18 16
+copy 167 19
+multiply 16 19 16
+add 9 16 9
+listSet 0 1 9
+iterate 168
+copy 168 0
+jump 94
+copy 128 0
+copy 161 1
+multiply 0 1 0
+copy 129 2
+copy 108 3
+copy 161 4
+subtract 3 4 3
+multiply 2 3 2
+add 0 2 0
+floor 0 0
+copy 0 169
+copy 169 0
+copy 169 1
+copy 169 2
+copy 95 3
+multiply 1 115 1
+add 1 0 0
+multiply 2 116 2
+add 2 0 0
+multiply 3 117 3
+add 3 0 0
+setColor 0
+copy 134 0
+drawTriangles 0
+iterate 156
+copy 156 0
+jump 89
+endDrawing
+copy 130 0
+sleep 0
+jump 49

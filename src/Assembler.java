@@ -59,7 +59,21 @@ public class Assembler {
             "updateConsole",  // 48
             "printVector",       // 49
             "printVectorNumbers", // 50
-            "printVectorSeparated" // 51
+            "printVectorSeparated", // 51
+            "setColor",        // 52
+            "setPosition",     // 53
+            "setTextSize",     // 54
+            "drawTriangles",   // 55
+            "drawText",        // 56
+            "beginDrawing",    // 57
+            "endDrawing",      // 58
+            "isPressed",        // 59
+            "mousePressed",     // 60
+            "getMouseX",        // 61
+            "getMouseY",        // 62
+            "getScroll",        // 63
+            "getWidth",         // 64
+            "getHeight"         // 65
     };
 
     public static final int[] OPERATION_LENGTHS = {
@@ -115,6 +129,20 @@ public class Assembler {
             1,   // "printVector"
             1,   // "printVectorNumbers"
             3,   // "printVectorSeparated"
+            1,   // "setColor"
+            2,   // "setPosition"
+            1,   // "setTextSize"
+            1,   // "drawTriangles"
+            1,   // "drawText"
+            0,   // "beginDrawing"
+            0,   // "endDrawing"
+            2,    // "isPressed"
+            2,    // "mousePressed",     -> 60
+            1,    // "getMouseX",        -> 61
+            1,    // "getMouseY",        -> 62
+            1,    // "getScroll",        -> 63
+            1,    // "getWidth",         -> 64
+            1    // "getHeight"         -> 65
     };
 
     public static void assemble(String assemblyPath, String outputPath) throws IOException {
@@ -188,7 +216,7 @@ public class Assembler {
         // Generate setting lines
         int lastSetLine = 0;
         for (int i = 1; i < input.length; i++) {
-            if (input[i].contains("set"))
+            if (input[i].contains("set "))
                 lastSetLine = i;
             else break;
         }
@@ -198,12 +226,12 @@ public class Assembler {
         if (lastSetLine != 0){
             // Safety checks
             for (int i = 1; i < lastSetLine + 1; i++) {
-                if (!input[i].contains("set"))
+                if (!input[i].contains("set "))
                     throw new AssemblingException("Set statements are mixed with other statements: " + input[i]);
             }
 
             for (int i = lastSetLine+1; i < input.length; i++) {
-                if (input[i].contains("set"))
+                if (input[i].contains("set "))
                     throw new AssemblingException("Set statements are mixed with other statements: " + input[i]);
             }
 
