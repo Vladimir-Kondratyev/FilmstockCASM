@@ -3,6 +3,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 public class Compiler {
     private static final String FORBIDDEN_SYMBOLS = "_$#@=&|?><^*/+\\-%(){};,[]. ";
@@ -708,6 +709,24 @@ public class Compiler {
 
         return result;
     }
+    
+    public void fastOperationSugar(List<String> input) {
+        for (int line = 0; line < input.size(); line++) {
+            for (int opp = 0; opp < ArithmeticCompiler.OPERATIONS.length; opp++) {
+                String delimiter = Pattern.quote(ArithmeticCompiler.OPERATIONS[opp]) + "=";
+                String[] separated = input.get(line).split(delimiter);
+                String leftPart  = separated[0];
+                String rightPart = "";
+                String fin = leftPart;
+                if (separated.length > 1) {
+                    rightPart = separated[0] + ArithmeticCompiler.OPERATIONS[opp] + "(" + separated[1] + ")";
+                    fin = leftPart + "=" + rightPart;
+                }
+
+                input.set(line, fin);
+            }
+        }
+    }
 
     public void compile(String inPath, String outPath) {
         List<String> clean = new ArrayList<>(Arrays.asList(readFileClean(inPath)));
@@ -725,6 +744,8 @@ public class Compiler {
         clean = getListSugar(clean);
 
         clean = functionListSugar(clean);
+
+        fastOperationSugar(clean);
 
         // Debug Code
         System.out.println("Formatted code:");
