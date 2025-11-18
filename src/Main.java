@@ -31,9 +31,21 @@ public class Main {
         }
     }
 
+    static void printHelp() {
+        System.out.println("-help: Prints this.");
+        System.out.println("-build    <inpath> <outpath> : Compiles and assembles a program.");
+        System.out.println("-compile  <inpath> <outpath> : Compiles Filmstock into Filmstock Assembly.");
+        System.out.println("-assemble <inpath> <outpath> : Assembles Filmstock Assembly into bytecode.");
+        System.out.println("-build    <inpath> <outpath> : Compiles and assembles a program.");
+        System.out.println("-test                        : Compiles test.script to test.aroll and assembles it into test.roll.");
+        System.out.println("                            -> Used for quick debugging.");
+
+    }
+
     public static void main(String[] args) {
         if (args.length == 0) {
             System.err.println("No arguments provided.");
+            printHelp();
             return;
         }
 
@@ -67,8 +79,14 @@ public class Main {
                     compile(args[1], args[2]);
                     break;
 
+                case "-help":
+                    printHelp();
+                    break;
+
                 default:
-                    System.err.println("Unknown command: " + args[0]);
+                    System.err.println("Unknown argument: " + args[0]);
+                    printHelp();
+                    break;
             }
         } catch (IOException e) {
             e.printStackTrace();

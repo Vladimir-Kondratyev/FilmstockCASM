@@ -1,16 +1,9 @@
-length = 7
+length = 6
 set 3 0.0
-set 4 10.0
-set 5 2.0
-copy 3 0
-copy 0 6
-copy 6 0
-copy 4 1
-copy 5 2
-divide 1 2 1
-add 0 1 0
-copy 0 6
-copy 6 0
-printNumbers 0 1
-print 4 1
-updateConsole
+set 4 3.0
+newList 0
+copy 0 5
+copy 5 0
+copy 3 1
+copy 4 2
+listSet 0 1 2

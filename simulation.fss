@@ -1,0 +1,89 @@
+#macro updateAxis(val, vel, min, max) {
+    $val = $vel + $val
+
+    #checkBounds($val, $vel, $min, $max)
+
+    $vel = $vel * friction
+}
+
+#macro checkBounds(val, vel, min, max) {
+    if ($val < $min) {
+        $val = $min
+        $vel = -$vel * bounce
+    }
+    if ($val > $max) {
+        $val = $max
+        $vel = -$vel * bounce
+    }
+
+    if ($vel > 1.5) {
+        $vel = 1.5
+    }
+    if ($vel < -1.5) {
+        $vel = -1.5
+    }
+}
+
+#macro doCollision(a, b, xdif, ydif, d) {
+    // Normalized directions
+    if ($d ? 0) {
+        var __nx = 2
+        var __ny = 0
+    }
+    else {
+        var __nx = $xdif / $d
+        var __ny = $ydif / $d
+    }
+
+
+    // Apply velocities
+    var __vxA = vels[$a*2]
+    var __vyA = vels[$a*2+1]
+    var __vxB = vels[$b*2]
+    var __vyB = vels[$b*2+1]
+
+    var __vAn = __vxA * __nx + __vyA * __ny
+    var __vBn = __vxB * __nx + __vyB * __ny
+
+    // Switch for a
+    vels[$a*2]   = vels[$a*2]   + (__vBn - __vAn) * __nx
+    vels[$a*2+1] = vels[$a*2+1] + (__vBn - __vAn) * __ny
+
+    // Switch for b
+    vels[$b*2]   = vels[$b*2]   + (__vAn - __vBn) * __nx
+    vels[$b*2+1] = vels[$b*2+1] + (__vAn - __vBn) * __ny
+
+    // Fix the overlap
+    var __overlap = 2 - $d
+
+    var __correction = __overlap / 2
+    balls[$a*2] =   balls[$a*2]   - __nx * __correction
+    balls[$a*2+1] = balls[$a*2+1] - __ny * __correction
+    balls[$b*2] =   balls[$b*2]   + __nx * __correction
+    balls[$b*2+1] = balls[$b*2+1] + __ny * __correction
+}
+
+#macro checkCollisions() {
+    // Go through all balls, O(n^2)
+    for var __ballA = 0; __ballA < ballAmount; it(__ballA) {
+        for var __ballB = 0; __ballB < ballAmount; it(__ballB) {
+
+            // Don't check the same balls
+            if (not(__ballA ? __ballB)) {
+                // For comfort
+                var __ax = balls[__ballA*2]
+                var __ay = balls[__ballA*2+1]
+                var __bx = balls[__ballB*2]
+                var __by = balls[__ballB*2+1]
+
+                // Compute distance
+                var __dist = 0
+                #distance(__ax, __ay, __bx, __by, __dist)
+
+                if (__dist < 2) {
+                    #doCollision(__ballA, __ballB, (__bx-__ax), (__by-__ay), __dist)
+                }
+            }
+        }
+    }
+}

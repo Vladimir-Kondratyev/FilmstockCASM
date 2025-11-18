@@ -48,33 +48,20 @@ public class ArithmeticCompiler {
         return removed.isEmpty();
     }
 
-    public static int getPriority(String o) {
+    public static int getPriority(String o, Compiler.Line line) {
         for (int i = 0; i < OPERATION_CHARS.length; i++) {
             for (String opc : OPERATION_CHARS[i])
                 if (Objects.equals(o, opc))
                     return i;
         }
-        throw new CompilationException("Unknown operation: " + o);
+        throw new CompilationException("Unknown operation: " + o, line);
     }
 
-    public static void main(String[] args) {
-        Compiler compiler = new Compiler();
-
-        compiler.get("a");
-        compiler.get("b");
-        compiler.get("c");
-        compiler.get("d");
-
-        Compiler.Node node = stringToNode(compiler, "f(2,3,4,5)", true);
-
-        System.out.println(node);
+    public static Compiler.Node compile(Compiler compiler, String input, Compiler.Line line) {
+        return stringToNode(compiler, input, true, line);
     }
 
-    public static Compiler.Node compile(Compiler compiler, String input) {
-        return stringToNode(compiler, input, true);
-    }
-
-    private static Compiler.Node stringToNode(Compiler compiler, String input, boolean isHead) {
+    private static Compiler.Node stringToNode(Compiler compiler, String input, boolean isHead, Compiler.Line line) {
         String stripped = input.replace("--", "+");
 
         //#region Deal with unary minus and 'a' and "Text"
@@ -96,7 +83,7 @@ public class ArithmeticCompiler {
             }
 
             if (doubleQuotes.size() % 2 != 0)
-                throw new CompilationException("Double Quote mismatch: " + input);
+                throw new CompilationException("Double Quote mismatch.", line);
 
             // Replace "AAAA" with 65, 65, 65, 65
             for (int q = doubleQuotes.size()-1; q > -1; q-=2) {
@@ -166,7 +153,7 @@ public class ArithmeticCompiler {
             //#endregion
 
             //#region Single Quote
-            int singleQuote = getSingleQuote(input, stripped);
+            int singleQuote = getSingleQuote(input, stripped, line);
 
             for (int i = 0; i < singleQuote/2; i++) {
                 for (int c = 0; c < stripped.length(); c++) {
@@ -309,7 +296,7 @@ public class ArithmeticCompiler {
         }
 
         if (openAmount != closedAmount)
-            throw new CompilationException("Parenthesis mismatch: " + input);
+            throw new CompilationException("Parenthesis mismatch.", line);
 
         if (openAmount != 0) {
             List<Integer> parenthesisStart = new ArrayList<>();
@@ -367,7 +354,7 @@ public class ArithmeticCompiler {
                         Compiler.Node[] argumentNodes = new Compiler.Node[functionArguments.size()];
 
                         for (int j = 0; j < functionArguments.size(); j++) {
-                            argumentNodes[j] = stringToNode(compiler, functionArguments.get(j), false);
+                            argumentNodes[j] = stringToNode(compiler, functionArguments.get(j), false, line);
                         }
 
                         Compiler.Node functionCallNode = compiler.nodeFromData(List.of(argumentNodes), f);
@@ -386,7 +373,7 @@ public class ArithmeticCompiler {
 
                     parenthesisNodes.add(stringToNode(compiler,
                             fixedParenthesis.
-                                    substring(parenthesisStart.get(i)+1, parenthesisEnd.get(i)), false));
+                                    substring(parenthesisStart.get(i)+1, parenthesisEnd.get(i)), false, line));
                 }
             }
 
@@ -432,7 +419,7 @@ public class ArithmeticCompiler {
         for (String tokenString : tokensStrings) {
             Object token;
             if (compiler.doesVarExist(tokenString))
-                token = compiler.get(tokenString);
+                token = compiler.get(tokenString, line);
 
             else if (isNumerical(tokenString)){
                 double value = Double.parseDouble(tokenString);
@@ -444,8 +431,15 @@ public class ArithmeticCompiler {
                 latestNode++;
             }
 
-            else
-                throw new CompilationException(String.format("Variable %s does not exist: %s", tokenString, input));
+            else if (tokenString.equals("{")){
+                throw new CompilationException("An open brace \"{\" does not belong here!", line);
+            }
+            else if (tokenString.equals("else")) {
+                throw new CompilationException("You left an else statement... All alone. You should feel bad.", line);
+            }
+            else {
+                throw new CompilationException(String.format("Variable %s does not exist: %s", tokenString, input), line);
+            }
 
             tokens.add(token);
         }
@@ -456,7 +450,7 @@ public class ArithmeticCompiler {
             for (int j = 0; j < OPERATION_CHARS.length; j++) {
                 boolean doBreak = false;
                 for (int o = 0; o < operationTokens.size(); o++){
-                    if (getPriority(operationTokens.get(o)) == j) {
+                    if (getPriority(operationTokens.get(o), line) == j) {
                         Compiler.Node[] children = new Compiler.Node[2];
                         for (int k = 1; k >= 0; k--)  {
                             Object token = tokens.get(o + k);
@@ -491,7 +485,7 @@ public class ArithmeticCompiler {
         return (Compiler.Node) tokens.get(0);
     }
 
-    private static int getSingleQuote(String input, String stripped) {
+    private static int getSingleQuote(String input, String stripped, Compiler.Line line) {
         int singleQuote = 0;
 
         for (int i = 0; i < stripped.length(); i++) {
@@ -508,7 +502,7 @@ public class ArithmeticCompiler {
         }
 
         if (singleQuote % 2 != 0)
-            throw new CompilationException("Single Quote mismatch: " + input);
+            throw new CompilationException("Single Quote mismatch.", line);
         return singleQuote;
     }
 

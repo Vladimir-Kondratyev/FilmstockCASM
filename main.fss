@@ -1,0 +1,62 @@
+#include rendering_helper.fss
+#include math_helper.fss
+#include simulation.fss
+#include renderer.fss
+
+// Setting variables
+var pixelPerUnit = 25
+
+// Acceleration
+var g = 9.81
+// Time scale
+var timeScale = 0.002
+var friction = 0.995
+var bounce = 0.7
+
+// Game width and height
+var width = 20
+var height = 20
+
+// Camera stuff (upper left corner)
+var cameraX = 1
+var cameraY = 1
+var cameraSpeed = 0.2
+
+// Amount of balls
+var ballAmount = 10
+
+// Balls and velocities
+var balls = lnew()
+var vels = lnew()
+
+for var i = 0; i < ballAmount; it(i) {
+    balls.add(i*0.8+2)
+    balls.add(5*random())
+
+    vels.add((random()-0.5)*0.2)
+    vels.add((random()-0.5)*0.2)
+}
+
+#macro updateGame() {
+    for var __ball = 0; __ball < ballAmount; it(__ball) {
+        vels[__ball*2+1] = vels[__ball*2+1] + g * timeScale
+
+        #updateAxis(balls[__ball*2],   vels[__ball*2],   1, width - 1)
+        #updateAxis(balls[__ball*2+1], vels[__ball*2+1], 1, height - 1)
+    }
+
+    #checkCollisions()
+}
+
+dStart()
+#fillScreen(0, 0, 0, 255)
+dEnd()
+
+var lastTime = time()
+
+for 0; 1; 0 {
+    #updateGame()
+    #drawGame()
+    sleep(16-(time()-lastTime))
+    lastTime = time()
+}

@@ -1,0 +1,82 @@
+// List where we store all of our Triangles
+var trigs = lnew()
+
+var trianglesPerCircle = 25
+
+for var i = 0; i < 6*trianglesPerCircle; it(i) {
+    trigs.add(0)
+}
+
+#macro drawGame() {
+    dStart()
+    #dealWithInput()
+
+    // Clear screen
+    #fillScreen(0, 0, 0, 255)
+
+    #fill(cameraX*pixelPerUnit, cameraY*pixelPerUnit, width*pixelPerUnit, height*pixelPerUnit, 30, 30, 30, 255)
+
+    for var ball = 0; ball < ballAmount; it(ball) {
+        var an = atan2(vels[ball*2+1], vels[ball*2])
+        var velLength = sqrt(vels[ball*2+1]*vels[ball*2+1]+vels[ball*2]*vels[ball*2])
+        var hFactor = 1 / (velLength*0.4+1)
+        var wFactor = 1 / hFactor
+        var c = 0
+        #min(velLength / 0.8, 1, c)
+
+        #drawBall(pixelPerUnit*wFactor, pixelPerUnit*hFactor, (balls[ball*2]+cameraX)*pixelPerUnit, (balls[ball*2+1]+cameraY)*pixelPerUnit, an, c)
+    }
+
+    dEnd()
+}
+
+#macro dealWithInput() {
+    if (isPressed(87)) { // w
+        cameraY = cameraY + cameraSpeed
+    }
+    if (isPressed(83)) { // s
+        cameraY = cameraY - cameraSpeed
+    }
+    if (isPressed(65)) { // a
+        cameraX = cameraX + cameraSpeed
+    }
+    if (isPressed(68)) { // d
+        cameraX = cameraX - cameraSpeed
+    }
+
+    if isMousePressed(0) {
+        #applyMouse(100, 1)
+    }
+    if isMousePressed(1) {
+        #applyMouse(-30, 0.5)
+    }
+}
+
+#macro applyMouse(scalar, scalarDist) {
+    for var __i = 0; __i < ballAmount; it(__i) {
+        var __dist = 0
+        #distance(balls[__i*2], balls[__i*2+1], mouseX()/pixelPerUnit, mouseY()/pixelPerUnit, __dist)
+        __dist = __dist * $scalarDist
+
+        #clamp(__dist, 0.5, 10000)
+
+        var __dirX = balls[__i*2] - mouseX()/pixelPerUnit
+        var __dirY = balls[__i*2+1] - mouseY()/pixelPerUnit
+
+        __dirX = __dirX / __dist ^ 2
+        __dirY = __dirY / __dist ^ 2
+
+        vels[__i*2] = vels[__i*2] + __dirX * timeScale * $scalar
+        vels[__i*2+1] = vels[__i*2+1] + __dirY * timeScale * $scalar
+    }
+}
+
+#macro drawBall(xSize, ySize, xCenter, yCenter, angle, colorFactor) {
+    // Put triangle data into the list
+    #setToRegularPolygonRotated(trigs, 0, trianglesPerCircle, $xSize, $ySize, $xCenter, $yCenter, $angle)
+
+    var __colorFac = floor(200 * $colorFactor + 33 * (1-$colorFactor))
+    setColor(__colorFac, __colorFac, __colorFac, 255)
+
+    trigs.drawTriangles()
+}

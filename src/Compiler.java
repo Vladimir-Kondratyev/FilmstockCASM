@@ -6,7 +6,17 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 public class Compiler {
-    private static final String FORBIDDEN_SYMBOLS = "_$#@=&|?><^*/+\\-%(){};,[]. ";
+    public static class Line {
+        public String code;
+        public String id;
+
+        public Line(String code, String id) {
+            this.code = code;
+            this.id = id;
+        }
+    }
+
+    public static final String FORBIDDEN_SYMBOLS = "_$#@=&|?><^*/+\\-%(){};,[]. ";
     private static final String NUMERIC = "1234567890.";
     // private static final String MACRO_FORBIDDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};, ";
 
@@ -48,11 +58,11 @@ public class Compiler {
         return headerOffsets.get(id);
     }
 
-    List<List<String>> macros = new ArrayList<>();
+    List<List<Line>> macros = new ArrayList<>();
     List<List<String>> macroArgumentNames = new ArrayList<>();
     List<String> macroNames = new ArrayList<>();
 
-    public List<String> inlineMacro(String macroName, List<String> argumentNames) {
+    public List<Line> inlineMacro(String macroName, List<String> argumentNames, Line lineObject) {
         int macroID = -1;
 
         for (int i = 0; i < macroNames.size(); i++) {
@@ -62,15 +72,35 @@ public class Compiler {
             }
         }
         if (macroID == -1)
-            throw new CompilationException("Unknown macro!");
+            throw new CompilationException("Unknown macro!", lineObject);
         
-        List<String> macro = macros.get(macroID);
+        List<Line> macro = macros.get(macroID);
         List<String> macroArguments = macroArgumentNames.get(macroID);
-        List<String> compiledMacro = new ArrayList<>(List.copyOf(macro));
+        List<Line> compiledMacro = new ArrayList<>();
+
+        int argAmount = argumentNames.size();
+
+        if (argumentNames.size() == 1) {
+            if (argumentNames.get(0).replace(" ", "").isEmpty()) {
+                argAmount = 0;
+            }
+        }
+
+        if (macroArguments.size() != argAmount) {
+            throw new CompilationException("Unexpected amount of macro call arguments!", lineObject);
+        }
+
+        for (Line l : macro) {
+            int lastLine = l.id.lastIndexOf("Line");
+
+            String sub = l.id.substring(0, lastLine) + macroName + l.id.substring(lastLine+4);
+
+            compiledMacro.add(new Line(l.code.substring(0), lineObject.id + " -> " + sub));
+        }
 
         for (int l = 0; l < compiledMacro.size(); l++) {
             for (int arg = 0; arg < macroArguments.size(); arg++) {
-                String line = compiledMacro.get(l);
+                String line = compiledMacro.get(l).code;
                 String argument = macroArguments.get(arg);
 
                 int argumentLength = argument.length();
@@ -95,14 +125,13 @@ public class Compiler {
                             + line.substring(beginning + argumentLength);
                 }
 
-                compiledMacro.set(l, line);
+                compiledMacro.set(l, new Line(line, compiledMacro.get(l).id));
             }
-            
         }
 
         String replace = macroName.toUpperCase() + "MACRO";
         for (int i = 0; i < compiledMacro.size(); i++) {
-            compiledMacro.set(i, compiledMacro.get(i).replace("__", replace));
+            compiledMacro.set(i, new Line(compiledMacro.get(i).code.replace("__", replace), compiledMacro.get(i).id));
         }
 
         return compiledMacro;
@@ -130,20 +159,20 @@ public class Compiler {
         return valid;
     }
 
-    public void addMacro(String name, List<String> body, List<String> arguments) {
+    public void addMacro(String name, List<Line> body, List<String> arguments) {
         macroNames.add(name);
         macros.add(body);
         macroArgumentNames.add(arguments);
     }
 
-    public List<String> parseMacros(List<String> input){
-        List<String> parsed = new ArrayList<>();
+    public List<Line> parseMacros(List<Line> input){
+        List<Line> parsed = new ArrayList<>();
 
         for (int i = 0; i < input.size(); i++) {
-            String line = input.get(i);
+            Line line = input.get(i);
 
-            if (line.startsWith("#macro")){
-                String[] separated = line.split(" ");
+            if (line.code.startsWith("#macro")){
+                String[] separated = line.code.split(" ");
                 String joined = String.join("", Arrays.copyOfRange(separated, 1, separated.length));
                 String[] joinedSeparated = joined.split("\\(");
 
@@ -161,14 +190,14 @@ public class Compiler {
                 // Safety checks
                 for (String argument : arguments){
                     if (argument.isEmpty())
-                        throw new CompilationException("Empty argument in macro.");
+                        throw new CompilationException("Empty argument in macro.", line);
                 }
                 if (name.isEmpty())
-                    throw new CompilationException("Empty macro name.");
+                    throw new CompilationException("Empty macro name.", line);
 
                 int end = findEndOfStatement(i, input);
 
-                List<String> body = input.subList(i+2, end);
+                List<Line> body = input.subList(i+2, end);
 
                 macros.add(body);
                 macroNames.add(name);
@@ -202,11 +231,12 @@ public class Compiler {
         return positions;
     }
 
-    public static String[] readFileClean(String path) {
+    public static Line[] readFileClean(String path) {
         String filePath = path;
 
-        List<String> clean = new ArrayList<>();
+        List<Line> clean = new ArrayList<>();
 
+        int lineCounter = 1;
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -214,30 +244,40 @@ public class Compiler {
                 line = line.split("//")[0];
 
                 if (!line.isEmpty())
-                    clean.add(line);
+                    clean.add(new Line(line, String.format("%s - Line: %d", path, lineCounter)));
+
+                lineCounter++;
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        return clean.toArray(new String[0]);
+        return clean.toArray(new Line[0]);
     }
 
-    public List<AssemblyOperation> compileLine(String input, int line, Variable returnVar) {
-        System.out.printf("Compiling line %d: %s.%n", line, input);
+    public List<AssemblyOperation> compileLine(Line input, Variable returnVar) {
+        System.out.printf("Compiling line: %s%nCODE: %s%n", input.id, input.code);
 
         // If this is a = statement, separate :)
-        String cInput = input;
-        if (input.contains("=")) {
-            String[] separated = input.split("=");
+        String cInput = input.code;
+        if (input.code.contains("=")) {
+            String[] separated = input.code.split("=");
 
-            if (input.charAt(separated[0].length()-1) != '\\') {
+            if (separated.length < 2) {
+                throw new CompilationException("Missing value after \"=\"!", input);
+            }
+
+            if (separated.length > 2) {
+                throw new CompilationException("You may only have one \"=\" per line!", input);
+            }
+
+            if (input.code.charAt(separated[0].length()-1) != '\\') {
                 separated[0] = separated[0].replace(" ", "");
 
                 if (doesVarExist(separated[0]))
-                    returnVar = get(separated[0]);
+                    returnVar = get(separated[0], input);
                 else
-                    throw new CompilationException(String.format("Line: %d%nVariable %s does not exist!", line, separated[0]));
+                    throw new CompilationException(String.format("Variable %s does not exist!", separated[0]), input);
                 cInput = separated[1].replace(" ", "");
             }
         }
@@ -245,9 +285,9 @@ public class Compiler {
         // Compile the whole into a tree.
         Node node;
         try {
-            node = ArithmeticCompiler.compile(this, cInput);
+            node = ArithmeticCompiler.compile(this, cInput, input);
         } catch (Exception e) {
-            throw new CompilationException(String.format("Line: %d%n%s", line, e.getMessage()));
+            throw e;
         }
 
         System.out.println(node + "\n");
@@ -255,30 +295,31 @@ public class Compiler {
         // Compile root into assembly.
         List<AssemblyOperation> operations;
         try {
-            operations = this.compileRoot(node, returnVar);
+            operations = this.compileRoot(node, returnVar, input);
         } catch (Exception e) {
-            throw new CompilationException(String.format("Line: %d%n%s", line, e.getMessage()));
+            throw e;
         }
 
         return operations;
     }
 
-    public List<AssemblyOperation> parseIf (List<String> input, List<String> elseLines, AssemblyOperation breakStatement){
+    public List<AssemblyOperation> parseIf (List<Line> input, List<Line> elseLines, AssemblyOperation breakStatement){
         List<AssemblyOperation> operations = new ArrayList<>();
 
         // Parse condition
-        String[] separated = input.get(0).split(" ");
+        String[] separated = input.get(0).code.split(" ");
         String[] separatedWithoutIf = Arrays.copyOfRange(separated, 1, separated.length);
         String joinedNoIf = String.join("", separatedWithoutIf);
 
         String conditionString = joinedNoIf.split("\\{")[0];
+        String conditionId = input.get(0).id;
 
         System.out.println("Condition:");
         System.out.println(conditionString);
 
         // Condition
         Variable condition = getTemporary();
-        operations.addAll(compileLine(conditionString, 0, condition));
+        operations.addAll(compileLine(new Line(conditionString, conditionId), condition));
 
         // Create headers
         Variable ifBodyHeader = getHeader(1);
@@ -297,19 +338,21 @@ public class Compiler {
         // Add header to which we jump if the condition is true
         operations.get(operations.size()-1).headers.add(ifBodyHeaderId);
 
-        List<String> stringsToExecute = input.subList(2, input.size()-1);
-        operations.addAll(compilePart(stringsToExecute, breakStatement));
+        List<Line> linesToExecute = input.subList(2, input.size()-1);
+        operations.addAll(compilePart(linesToExecute, breakStatement));
 
         // Add header to which we jump if the condition was false
         operations.get(operations.size()-1).headers.add(endHeaderId);
         return operations;
     }
 
-    public List<AssemblyOperation> parseFor (List<String> input) {
+    public List<AssemblyOperation> parseFor (List<Line> input) {
         List<AssemblyOperation> operations = new ArrayList<>();
 
-        String firstLine = input.get(0);
+        String firstLine = input.get(0).code;
         String cleanFirst = firstLine.substring(3);
+
+        String firstId = input.get(0).id;
 
         cleanFirst = cleanFirst.replaceAll(";", " ; ");
 
@@ -317,6 +360,16 @@ public class Compiler {
         // 1 = Condition
         // 2 = Update
         String[] forExpressions = cleanFirst.split(";");
+
+        if (forExpressions.length != 3) {
+            throw new CompilationException("You must use three statements separated by \";\" in a for statement!", input.get(0));
+        }
+
+        for (String forExpression : forExpressions) {
+            if (forExpression.replace(" ", "").isEmpty()) {
+                throw new CompilationException("You may not have empty expressions in a for loop. Try adding 0 instead.", input.get(0));
+            }
+        }
 
         // Remove unnecessary white spaces (OMORI ahh)
         for (int i = 0; i < forExpressions.length; i++) {
@@ -343,7 +396,7 @@ public class Compiler {
             startHeaderId = getLatestHeaderId();
 
             // Add initialization lines
-            operations.addAll(compileLine(forExpressions[0], 0, null));
+            operations.addAll(compileLine(new Line(forExpressions[0], firstId), null));
 
             // Add header after initialization
             operations.get(operations.size()-1).headers.add(startHeaderId);
@@ -365,7 +418,7 @@ public class Compiler {
             forExpressions[1] = "0";
         }
 
-        operations.addAll(compileLine(forExpressions[1], 0, condition));
+        operations.addAll(compileLine(new Line(forExpressions[1], firstId), condition));
         // Break operation is what is executed for "break" lines.
         AssemblyOperation breakOperation = new AssemblyOperation(Type.JUMP, new Variable[] {endHeaderBreak});
 
@@ -377,12 +430,12 @@ public class Compiler {
         //#endregion
 
         // Add main part
-        List<String> stringsToExecute = input.subList(2, input.size()-1);
+        List<Line> stringsToExecute = input.subList(2, input.size()-1);
         operations.addAll(compilePart(stringsToExecute, breakOperation));
 
         //#region Update
         if (!forExpressions[2].isEmpty())
-            operations.addAll(compileLine(forExpressions[2], 0, null));
+            operations.addAll(compileLine(new Line(forExpressions[2], firstId), null));
         //#endregion
 
         // Add jump to start
@@ -395,64 +448,70 @@ public class Compiler {
         return operations;
     }
 
-    public List<AssemblyOperation> compilePart(List<String> clean, AssemblyOperation breakStatement) {
+    public List<AssemblyOperation> compilePart(List<Line> input, AssemblyOperation breakStatement) {
         List<AssemblyOperation> operations = new ArrayList<>();
+        List<String> clean = new ArrayList<>();
 
-        for (int i = 0; i < clean.size(); i++) {
+        for (Line line : input) {
+            clean.add(line.code);
+        }
+
+        for (int i = 0; i < input.size(); i++) {
+
             dropTemporary();
             if (clean.get(i).startsWith("if")) {
-                int end = findEndOfStatement(i, clean);
+                int end = findEndOfStatement(i, input);
                 int elseEnd = end;
 
                 if (end+1 < clean.size()){
                     if (clean.get(end+1).startsWith("else")) {
-                        elseEnd = findEndOfStatement(end+1, clean);
+                        elseEnd = findEndOfStatement(end+1, input);
                     }
                 }
 
-                List<String> elseLines = new ArrayList<>();
+                List<Line> elseLines = new ArrayList<>();
                 if (elseEnd != end) {
-                    elseLines = clean.subList(end+3,elseEnd);
+                    elseLines = input.subList(end+3,elseEnd);
                 }
-                operations.addAll(parseIf(clean.subList(i, end+1), elseLines, breakStatement));
+                operations.addAll(parseIf(input.subList(i, end+1), elseLines, breakStatement));
 
                 i = end + (elseEnd - end);
             }
             else if (clean.get(i).startsWith("for")){
-                int end = findEndOfStatement(i, clean);
+                int end = findEndOfStatement(i, input);
 
-                operations.addAll(parseFor(clean.subList(i, end+1)));
+                operations.addAll(parseFor(input.subList(i, end+1)));
 
                 i = end;
             }
             else if (Objects.equals(clean.get(i), "break")){
                 if (breakStatement == null)
-                    throw new CompilationException("Using a break statement outside a loop!");
+                    throw new CompilationException("Using a break statement outside a loop!", input.get(i));
                 else {
                     operations.add(breakStatement);
                 }
             }
             else {
-                operations.addAll(compileLine(clean.get(i), 0, null));
+                operations.addAll(compileLine(input.get(i), null));
             }
         }
 
         return operations;
     }
 
-    private int findEndOfStatement(int start, List<String> input) {
+    private int findEndOfStatement(int start, List<Line> input) {
         int found = 0;
         int depth = 0;
         int end = -1;
 
         for (int j = start; j < input.size(); j++) {
             boolean doBreak = false;
-            for (int c = 0; c < input.get(j).length(); c++) {
-                if (input.get(j).charAt(c) == '{'){
+            for (int c = 0; c < input.get(j).code.length(); c++) {
+                if (input.get(j).code.charAt(c) == '{'){
                     found++;
                     depth++;
                 }
-                if (input.get(j).charAt(c) == '}'){
+                if (input.get(j).code.charAt(c) == '}'){
                     depth--;
                 }
 
@@ -468,7 +527,7 @@ public class Compiler {
         }
 
         if (end == -1)
-            throw new CompilationException("Unclosed statement!");
+            throw new CompilationException("Unclosed statement / braces \"{\"!", input.get(start));
 
         return end;
     }
@@ -476,25 +535,25 @@ public class Compiler {
     private String allocate(String statement) {
         if (statement.startsWith("var ")) {
             String varString = statement.substring(3);
-            get(varString.split("=")[0].replace(" ", ""));
+            get(varString.split("=")[0].replace(" ", ""), null);
             return statement.substring(4);
         }
         return statement;
     }
 
-    private List<String> inlineMacros(List<String> input) {
+    private List<Line> inlineMacros(List<Line> input) {
         boolean changed = true;
 
-        List<String> ret = new ArrayList<>(input);
+        List<Line> ret = new ArrayList<>(input);
 
         while (changed) {
             changed = false;
-            List<String> output = new ArrayList<>();
+            List<Line> output = new ArrayList<>();
 
-            for (String line : ret) {
-                if (line.startsWith("#")) {
+            for (Line line : ret) {
+                if (line.code.startsWith("#")) {
                     changed = true;
-                    String noHash = line.substring(1);
+                    String noHash = line.code.substring(1);
 
                     String[] separated = noHash.split("\\(");
 
@@ -502,11 +561,15 @@ public class Compiler {
                     String joined = String.join("(", Arrays.copyOfRange(separated, 1, separated.length));
 
                     String parsedArgs = joined.replace(" ", "");
+                    if (parsedArgs.length()-1 < 0) {
+                        throw new CompilationException("The macro call seems to have mismatched / missing parentheses!", line);
+                    }
+
                     String[] arguments = parsedArgs.substring(0, parsedArgs.length()-1).split(",");
 
                     // System.out.println("Inline macros name: " + name);
 
-                    output.addAll(inlineMacro(name, Arrays.asList(arguments)));
+                    output.addAll(inlineMacro(name, Arrays.asList(arguments), line));
                 }
                 else {
                     output.add(line);
@@ -518,17 +581,17 @@ public class Compiler {
         return ret;
     }
 
-    private List<String> inlineFiles(List<String> input) {
-        List<String> output = new ArrayList<>();
+    private List<Line> inlineFiles(List<Line> input) {
+        List<Line> output = new ArrayList<>();
 
-        for (String line : input) {
-            if (line.startsWith("#")) {
-                String noHash = line.substring(1);
+        for (Line line : input) {
+            if (line.code.startsWith("#")) {
+                String noHash = line.code.substring(1);
                 noHash = noHash.strip();
 
                 if (noHash.startsWith("include")) {
                     String path = noHash.substring(7).strip();
-                    List<String> loaded =List.of(readFileClean(path));
+                    List<Line> loaded =List.of(readFileClean(path));
 
                     output.addAll(loaded);
                 }
@@ -543,13 +606,16 @@ public class Compiler {
         return output;
     }
 
-    private List<String> setListSugar(List<String> input) {
-        List<String> result = new ArrayList<>();
+    private List<Line> setListSugar(List<Line> input) {
+        List<Line> result = new ArrayList<>();
 
-        for (String line : input) {
-            String firstPart = line.split("=")[0];
+        for (Line line : input) {
+            String firstPart = line.code.split("=")[0];
 
-            if (firstPart.contains("[") && line.contains("=")) {
+            if (firstPart.contains("[") && line.code.contains("=")) {
+                if (!firstPart.contains("]"))
+                    throw new CompilationException("Missing \"]\".");
+
                 String[] seprarated = firstPart.split("\\[");
                 seprarated[0] = seprarated[0].strip();
                 seprarated[1] = String.join("[", Arrays.copyOfRange(seprarated, 1, seprarated.length)).strip();
@@ -557,9 +623,9 @@ public class Compiler {
                 seprarated[1] = seprarated[1].substring(0, seprarated[1].length()-1);
 
                 String out = "lset(" + seprarated[0] + ", " + seprarated[1]
-                        + ", " + line.split("=")[1] + ")";
+                        + ", " + line.code.split("=")[1] + ")";
 
-                result.add(out);
+                result.add(new Line(out, line.id));
             }
             else {
                 result.add(line);
@@ -569,11 +635,11 @@ public class Compiler {
         return result;
     }
 
-    private List<String> getListSugar(List<String> input) {
-        List<String> result = new ArrayList<>();
+    private List<Line> getListSugar(List<Line> input) {
+        List<Line> result = new ArrayList<>();
 
-        for (String line : input) {
-            String inline = line;
+        for (Line line : input) {
+            String inline = line.code;
 
             while (true) {
                 char[] charLine = inline.toCharArray();
@@ -615,7 +681,7 @@ public class Compiler {
                     inline = inline.substring(0, startName) + r + inline.substring(end + 1);
                 }
                 else {
-                    result.add(inline);
+                    result.add(new Line(inline, line.id));
                     break;
                 }
             }
@@ -624,11 +690,11 @@ public class Compiler {
         return result;
     }
 
-    public List<String> functionListSugar(List<String> input) {
-        List<String> result = new ArrayList<>();
+    public List<Line> functionListSugar(List<Line> input) {
+        List<Line> result = new ArrayList<>();
 
-        for (String line : input) {
-            String inline = line;
+        for (Line line : input) {
+            String inline = line.code;
 
             while (true) {
                 char[] charLine = inline.toCharArray();
@@ -700,7 +766,7 @@ public class Compiler {
                     inline = inline.substring(0, startName) + r + inline.substring(end + 1);
                 }
                 else {
-                    result.add(inline);
+                    result.add(new Line(inline, line.id));
                     break;
                 }
             }
@@ -710,11 +776,11 @@ public class Compiler {
         return result;
     }
     
-    public void fastOperationSugar(List<String> input) {
+    public void fastOperationSugar(List<Line> input) {
         for (int line = 0; line < input.size(); line++) {
             for (int opp = 0; opp < ArithmeticCompiler.OPERATIONS.length; opp++) {
                 String delimiter = Pattern.quote(ArithmeticCompiler.OPERATIONS[opp]) + "=";
-                String[] separated = input.get(line).split(delimiter);
+                String[] separated = input.get(line).code.split(delimiter);
                 String leftPart  = separated[0];
                 String rightPart = "";
                 String fin = leftPart;
@@ -723,13 +789,13 @@ public class Compiler {
                     fin = leftPart + "=" + rightPart;
                 }
 
-                input.set(line, fin);
+                input.set(line, new Line(fin, input.get(line).id));
             }
         }
     }
 
     public void compile(String inPath, String outPath) {
-        List<String> clean = new ArrayList<>(Arrays.asList(readFileClean(inPath)));
+        List<Line> clean = new ArrayList<>(Arrays.asList(readFileClean(inPath)));
 
         clean = inlineFiles(clean);
 
@@ -749,22 +815,23 @@ public class Compiler {
 
         // Debug Code
         System.out.println("Formatted code:");
-        for (String line : clean) {
-            System.out.println(line);
+        for (Line line : clean) {
+            System.out.println(line.code);
         }
         System.out.println();
 
         // Allocate variables.
         for (int i = 0; i < clean.size(); i++) {
-            if (clean.get(i).startsWith("var ")) {
-                clean.set(i, clean.get(i).substring(4));
-                get(clean.get(i).split("=")[0].replace(" ", ""));
+            if (clean.get(i).code.startsWith("var ")) {
+                String oldString = clean.get(i).code.substring(0);
+                clean.set(i, new Line(clean.get(i).code.substring(4), clean.get(i).id));
+                get(clean.get(i).code.split("=")[0].replace(" ", ""), new Line(oldString, clean.get(i).id));
             }
-            else if (clean.get(i).startsWith("for")) {
-                String noFor = clean.get(i).substring(3);
+            else if (clean.get(i).code.startsWith("for")) {
+                String noFor = clean.get(i).code.substring(3);
                 String firstPart = noFor.split(";")[0].strip();
                 if (firstPart.startsWith("var ")) {
-                    get(firstPart.split("=")[0].substring(3).replace(" ", ""));
+                    get(firstPart.split("=")[0].substring(3).replace(" ", ""), clean.get(i));
                 }
             }
         }
@@ -789,7 +856,7 @@ public class Compiler {
             }
 
             if (val == -1)
-                throw new CompilationException("Header not found :(");
+                throw new CompilationException("FATAL ERROR! Header not found :(");
 
             builder.append("set ").
                     append(headers.get(i).memoryPosition).
@@ -815,33 +882,33 @@ public class Compiler {
         }
     }
 
-    public List<String> separateCurved(List<String> input){
-        List<String> result = new ArrayList<>();
+    public List<Line> separateCurved(List<Line> input){
+        List<Line> result = new ArrayList<>();
 
         // Sugar for {} to not need new lines
-        for (String line : input) {
+        for (Line line : input) {
             StringBuilder token = new StringBuilder();
-            for (char c : line.toCharArray()) {
+            for (char c : line.code.toCharArray()) {
                 if (c == '{' || c == '}') {
                     if (token.length() > 0) {
-                        result.add(token.toString());
+                        result.add(new Line(token.toString(), line.id));
                         token.setLength(0);
                     }
-                    result.add(String.valueOf(c));
+                    result.add(new Line(String.valueOf(c), line.id));
                 } else {
                     token.append(c);
                 }
             }
             if (token.length() > 0) {
-                result.add(token.toString());
+                result.add(new Line(token.toString(), line.id));
             }
         }
 
         // Clean empty lines
-        List<String> returnVal = new ArrayList<>();
-        for (String line : result) {
-            if (!line.trim().isEmpty()) {
-                returnVal.add(line.trim());
+        List<Line> returnVal = new ArrayList<>();
+        for (Line line : result) {
+            if (!line.code.trim().isEmpty()) {
+                returnVal.add(new Line(line.code.trim(), line.id));
             }
         }
 
@@ -880,7 +947,7 @@ public class Compiler {
     List<Variable> variables = new ArrayList<>();
     List<String> names = new ArrayList<>();
 
-    public Variable get(String name) {
+    public Variable get(String name, Line line) {
         int forbiddenChar = -1; // default: none found
         for (char c : name.toCharArray()) {
             if (FORBIDDEN_SYMBOLS.indexOf(c) >= 0) {
@@ -889,9 +956,20 @@ public class Compiler {
             }
         }
 
-        if (forbiddenChar != -1)
-            throw new CompilationException(
-                    String.format("Variable %s uses forbidden symbol: %s", name, FORBIDDEN_SYMBOLS.charAt(forbiddenChar)));
+        if (forbiddenChar != -1) {
+            String error = String.format("Variable %s uses forbidden symbol: \"%s\"", name, FORBIDDEN_SYMBOLS.charAt(forbiddenChar));
+            if (line != null) {
+                throw new CompilationException(
+                        error,
+                        line
+                );
+            }
+            else {
+                throw new CompilationException(
+                        error
+                );
+            }
+        }
 
         for (int i = 0; i < variables.size(); i++) {
             if (Objects.equals(names.get(i), name))
@@ -936,7 +1014,12 @@ public class Compiler {
         for (Variable temp : temporaryVariables)
             temp.memoryPosition = currentId++;
 
-        System.out.printf("%d temporary variables.%n", currentId);
+        if (currentId > 0) {
+            System.out.printf("%d temporary variables with ids from 0 to %d.%n", currentId, currentId - 1);
+        }
+        else {
+            System.out.println("No temporary variables.");
+        }
 
         for (Variable var : headers) {
             var.memoryPosition = currentId++;
@@ -952,19 +1035,49 @@ public class Compiler {
 
         length = currentId;
 
-        System.out.println("\nHeaders:");
-        for (int i = 0; i < headers.size(); i++) {
-            System.out.printf("%d%n", headers.get(i).memoryPosition);
+        if (!headers.isEmpty()) {
+            System.out.printf("%d headers with ids from 0 to %d.%n", headers.get(0).memoryPosition, headers.get(headers.size()-1).memoryPosition);
+        }
+        else {
+            System.out.println("No temporary variables.");
         }
 
-        System.out.println("\nConstants:");
-        for (int i = 0; i < constants.size(); i++) {
-            System.out.printf("%f : %d%n", constantValues.get(i), constants.get(i).memoryPosition);
+        if (constants.isEmpty()) {
+            System.out.println("No constants.");
+        } else {
+            int count = constants.size();
+            int firstPos = constants.get(0).memoryPosition;
+            int lastPos = constants.get(count - 1).memoryPosition;
+
+            double lowest = Double.POSITIVE_INFINITY;
+            double highest = Double.NEGATIVE_INFINITY;
+            double sum = 0;
+
+            for (double v : constantValues) {
+                if (v < lowest) lowest = v;
+                if (v > highest) highest = v;
+                sum += v;
+            }
+
+            double avg = sum / count;
+
+            System.out.printf(
+                    "%d constants with memory positions from %d to %d. ",
+                    count, firstPos, lastPos
+            );
+
+            System.out.printf(
+                    "The lowest element is %.2f, the highest is %.2f, the average is %.2f.%n",
+                    lowest, highest, avg
+            );
         }
 
-        System.out.println("\nVariables:");
-        for (int i = 0; i < variables.size(); i++) {
-            System.out.printf("%s : %d%n", names.get(i), variables.get(i).memoryPosition);
+
+        if (variables.isEmpty()) {
+            System.out.println("No variables.");
+        } else {
+            System.out.println(variables.size() + " variables with memory positions from " + variables.get(0).memoryPosition +
+                    " to " + variables.get(variables.size()-1).memoryPosition + ".");
         }
     }
 
@@ -1115,9 +1228,9 @@ public class Compiler {
         }
     }
 
-    private List<AssemblyOperation> compileRoot(Node root, Variable writeTo) {
+    private List<AssemblyOperation> compileRoot(Node root, Variable writeTo, Line line) {
         dropTemporary();
-        List<AssemblyOperation> operations = compile(root);
+        List<AssemblyOperation> operations = compile(root, line);
 
         if (writeTo != null)
             operations.add(new AssemblyOperation(Type.COPY, new Variable[] {root.value.getVariable(), writeTo}));
@@ -1125,7 +1238,7 @@ public class Compiler {
         return operations;
     }
 
-    private List<AssemblyOperation> compile(Node node) {
+    private List<AssemblyOperation> compile(Node node, Line line) {
         List<AssemblyOperation> result = new ArrayList<>();
 
         if (node.value.isVariable()) {
@@ -1149,13 +1262,13 @@ public class Compiler {
 
             // Execute and compile the instructions of the children.
             for (Node child : node.children)
-                result.addAll(compile(child));
+                result.addAll(compile(child, line));
 
             switch (node.value.getOpType()){
                 // Default operations with two inputs
                 case POWER, MULTIPLY, DIVIDE, MOD, ADD, SUBTRACT, AND, OR, IS_EQUAL, IS_GREATER, IS_SMALLER:
                     if (node.children.size() != expectedArguments(OPType.ADD)) // Use add, cause all of these use 2.
-                        throw new CompilationException("Adding more then two numbers together!");
+                        throw new CompilationException("Adding more then two numbers together!", line);
                     Variable a = node.children.get(0).value.getVariable();
                     Variable b = node.children.get(1).value.getVariable();
 
@@ -1191,22 +1304,22 @@ public class Compiler {
                         if (BUILT_IN_FUNCTION_ARG_AMOUNT[builtInFunction] != -1
                                 && BUILT_IN_FUNCTION_ARG_AMOUNT[builtInFunction] != arguments.length)
                             throw new CompilationException(String.format("Expected %d but got %d arguments for the built-in function %s!",
-                                    BUILT_IN_FUNCTION_ARG_AMOUNT[builtInFunction], arguments.length, functionName));
+                                    BUILT_IN_FUNCTION_ARG_AMOUNT[builtInFunction], arguments.length, functionName), line);
 
                         if (arguments.length == 0) {
                             arguments = new Variable[] {getTemporary()};
                         }
 
-                        result.addAll(getAssemblyOfBuiltIn(builtInFunction, arguments));
+                        result.addAll(getAssemblyOfBuiltIn(builtInFunction, arguments, line));
 
                         node.value.setVariable(arguments[0]); // 0 is the return field for built-in functions.
                     }
                     else
-                        throw new CompilationException(String.format("Unknown function %s!%n", functionName));
+                        throw new CompilationException(String.format("Unknown function %s!%n", functionName), line);
 
                     break;
                 default:
-                    throw new CompilationException("Unknown Operation!");
+                    throw new CompilationException("Unknown Operation!", line);
             }
         }
 
@@ -1329,15 +1442,15 @@ public class Compiler {
             0    //"height"
     };
 
-    public List<AssemblyOperation> getAssemblyOfBuiltIn(int functionId, Variable[] arguments) {
+    public List<AssemblyOperation> getAssemblyOfBuiltIn(int functionId, Variable[] arguments, Line line) {
         List<AssemblyOperation> result = new ArrayList<>();
 
         switch (functionId){
             case 0, 1, 2, 3, 4, 7, 16, 17, 18: // sin, cos, tan, asin, acos, not, floor, round, ceil
-                result.add(new AssemblyOperation(fromBuiltInId(functionId), new Variable[] {arguments[0], arguments[0]}));
+                result.add(new AssemblyOperation(fromBuiltInId(functionId, line), new Variable[] {arguments[0], arguments[0]}));
                 break;
             case 5: // atan2
-                result.add(new AssemblyOperation(fromBuiltInId(functionId), new Variable[] {arguments[0], arguments[1], arguments[0]}));
+                result.add(new AssemblyOperation(fromBuiltInId(functionId, line), new Variable[] {arguments[0], arguments[1], arguments[0]}));
                 break;
             case 6: // root
                 // Copy 1 into a temp
@@ -1358,9 +1471,9 @@ public class Compiler {
                 arguments[0] = tempIterationReturn;
                 break;
             case 9:
-                throw new CompilationException("Usage of discontinued pointer function!");
+                throw new CompilationException("Usage of discontinued pointer function!", line);
             case 10: // Position
-                throw new CompilationException("Usage of discontinued position function!");
+                throw new CompilationException("Usage of discontinued position function!", line);
             case 11:
                 result.add(new AssemblyOperation(Type.POWER, new Variable[] {arguments[0], getConstant(0.5), arguments[0]}));
                 break;
@@ -1528,7 +1641,7 @@ public class Compiler {
                 result.add(new AssemblyOperation(Type.GET_HEIGHT, new Variable[] {arguments[0]}));
                 break;
             default:
-                throw new CompilationException("Unknown built-in function with id: " + functionId);
+                throw new CompilationException("Unknown built-in function with id: " + functionId, line);
         }
 
         return result;
@@ -1540,11 +1653,10 @@ public class Compiler {
 
         public List<Integer> headers = new ArrayList<>();
 
-        @Override
         public String toString() {
             StringBuilder builder = new StringBuilder();
 
-            builder.append(typeToString(type));
+            builder.append(typeToString(type, null));
 
             for (Variable variable : vars)
                 builder.append(" ").append(variable.memoryPosition);
@@ -1629,7 +1741,7 @@ public class Compiler {
         GET_HEIGHT
     }
 
-    private String typeToString(Type type) {
+    private String typeToString(Type type, Line line) {
         switch (type) {
             case COPY -> {
                 return "copy";
@@ -1827,10 +1939,10 @@ public class Compiler {
                 return "getHeight";
             }
         }
-        throw new CompilationException("Unknown operation type :(, " + type);
+        throw new CompilationException("Unknown operation type :(, " + type, line);
     }
 
-    public Type fromBuiltInId(int id) {
+    public Type fromBuiltInId(int id, Line line) {
         return switch (id) {
             case 0 -> Type.SIN;
             case 1 -> Type.COS;
@@ -1841,7 +1953,7 @@ public class Compiler {
             case 6 -> Type.POWER;  // "root"
             case 7 -> Type.NOT;
             case 8 -> Type.ITERATE;     // "it"
-            case 9 -> throw new CompilationException("Usage of discontinued pointer function!");
+            case 9 -> throw new CompilationException("Usage of discontinued pointer function!", line);
             case 10 -> Type.POSITION;
             case 11 -> Type.POWER; // "sqrt"
             case 12 -> Type.PRINT_NUMBERS;
@@ -1850,7 +1962,7 @@ public class Compiler {
             case 17 -> Type.ROUND;
             case 18 -> Type.CEIL;
 
-            default -> throw new CompilationException("Unknown built in function id: " + id);
+            default -> throw new CompilationException("Unknown built in function id: " + id, line);
         };
     }
 
