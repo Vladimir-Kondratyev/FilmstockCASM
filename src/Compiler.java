@@ -256,7 +256,8 @@ public class Compiler {
     }
 
     public List<AssemblyOperation> compileLine(Line input, Variable returnVar) {
-        System.out.printf("Compiling line: %s%nCODE: %s%n", input.id, input.code);
+        if (Main.debug)
+            System.out.printf("Compiling line: %s%nCODE: %s%n", input.id, input.code);
 
         // If this is a = statement, separate :)
         String cInput = input.code;
@@ -290,7 +291,8 @@ public class Compiler {
             throw e;
         }
 
-        System.out.println(node + "\n");
+        if (Main.debug)
+            System.out.println(node + "\n");
 
         // Compile root into assembly.
         List<AssemblyOperation> operations;
@@ -314,8 +316,10 @@ public class Compiler {
         String conditionString = joinedNoIf.split("\\{")[0];
         String conditionId = input.get(0).id;
 
-        System.out.println("Condition:");
-        System.out.println(conditionString);
+        if (Main.debug) {
+            System.out.println("Condition:");
+            System.out.println(conditionString);
+        }
 
         // Condition
         Variable condition = getTemporary();
@@ -814,11 +818,13 @@ public class Compiler {
         fastOperationSugar(clean);
 
         // Debug Code
-        System.out.println("Formatted code:");
-        for (Line line : clean) {
-            System.out.println(line.code);
+        if (Main.debug) {
+            System.out.println("Formatted code:");
+            for (Line line : clean) {
+                System.out.println(line.code);
+            }
+            System.out.println();
         }
-        System.out.println();
 
         // Allocate variables.
         for (int i = 0; i < clean.size(); i++) {
@@ -1014,11 +1020,12 @@ public class Compiler {
         for (Variable temp : temporaryVariables)
             temp.memoryPosition = currentId++;
 
-        if (currentId > 0) {
-            System.out.printf("%d temporary variables with ids from 0 to %d.%n", currentId, currentId - 1);
-        }
-        else {
-            System.out.println("No temporary variables.");
+        if (Main.debug) {
+            if (currentId > 0) {
+                System.out.printf("%d temporary variables with ids from 0 to %d.%n", currentId, currentId - 1);
+            } else {
+                System.out.println("No temporary variables.");
+            }
         }
 
         for (Variable var : headers) {
@@ -1035,49 +1042,51 @@ public class Compiler {
 
         length = currentId;
 
-        if (!headers.isEmpty()) {
-            System.out.printf("%d headers with ids from 0 to %d.%n", headers.get(0).memoryPosition, headers.get(headers.size()-1).memoryPosition);
-        }
-        else {
-            System.out.println("No temporary variables.");
-        }
-
-        if (constants.isEmpty()) {
-            System.out.println("No constants.");
-        } else {
-            int count = constants.size();
-            int firstPos = constants.get(0).memoryPosition;
-            int lastPos = constants.get(count - 1).memoryPosition;
-
-            double lowest = Double.POSITIVE_INFINITY;
-            double highest = Double.NEGATIVE_INFINITY;
-            double sum = 0;
-
-            for (double v : constantValues) {
-                if (v < lowest) lowest = v;
-                if (v > highest) highest = v;
-                sum += v;
+        if (Main.debug) {
+            if (!headers.isEmpty()) {
+                System.out.printf("%d headers with ids from 0 to %d.%n", headers.get(0).memoryPosition, headers.get(headers.size() - 1).memoryPosition);
+            } else {
+                System.out.println("No temporary variables.");
             }
 
-            double avg = sum / count;
+            if (constants.isEmpty()) {
+                System.out.println("No constants.");
+            } else {
+                int count = constants.size();
+                int firstPos = constants.get(0).memoryPosition;
+                int lastPos = constants.get(count - 1).memoryPosition;
 
-            System.out.printf(
-                    "%d constants with memory positions from %d to %d. ",
-                    count, firstPos, lastPos
-            );
+                double lowest = Double.POSITIVE_INFINITY;
+                double highest = Double.NEGATIVE_INFINITY;
+                double sum = 0;
 
-            System.out.printf(
-                    "The lowest element is %.2f, the highest is %.2f, the average is %.2f.%n",
-                    lowest, highest, avg
-            );
-        }
+                for (double v : constantValues) {
+                    if (v < lowest) lowest = v;
+                    if (v > highest) highest = v;
+                    sum += v;
+                }
 
+                double avg = sum / count;
 
-        if (variables.isEmpty()) {
-            System.out.println("No variables.");
-        } else {
-            System.out.println(variables.size() + " variables with memory positions from " + variables.get(0).memoryPosition +
-                    " to " + variables.get(variables.size()-1).memoryPosition + ".");
+                System.out.printf(
+                        "%d constants with memory positions from %d to %d. ",
+                        count, firstPos, lastPos
+                );
+
+                System.out.printf(
+                        "The lowest element is %.2f, the highest is %.2f, the average is %.2f.%n",
+                        lowest, highest, avg
+                );
+            }
+
+            if (variables.isEmpty()) {
+                System.out.println("No variables.");
+            } else {
+                System.out.println(variables.size() + " variables with memory positions from " + variables.get(0).memoryPosition +
+                        " to " + variables.get(variables.size() - 1).memoryPosition + ".");
+            }
+
+            System.out.println("The compilation was successful!");
         }
     }
 

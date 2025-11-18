@@ -2,11 +2,12 @@ import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 public class Assembler {
+    public static int lineAmount = 0;
+
     public static String[] OPERATIONS = {
             "copy",         // 0
             "add",          // 1
@@ -146,8 +147,12 @@ public class Assembler {
     };
 
     public static void assemble(String assemblyPath, String outputPath) throws IOException {
+        lineAmount = 0;
         writeBytesToFile(Assembler.toBytes(Assembler.getParts(Assembler.readFileClean(assemblyPath))), outputPath);
-        System.out.println("Assembled!");
+
+        if (Main.debug) {
+            System.out.printf("Assembled %d lines!%n", lineAmount);
+        }
     }
 
     public static void writeBytesToFile(byte[] data, String filename) throws IOException {
@@ -199,6 +204,8 @@ public class Assembler {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        lineAmount = clean.size();
 
         return clean.toArray(new String[0]);
     }

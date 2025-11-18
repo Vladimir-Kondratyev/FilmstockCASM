@@ -2,8 +2,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Objects;
 
 public class Main {
+    public static boolean debug = false;
+
 
     public static void testMain(String[] args) throws IOException {
         Compiler compiler = new Compiler();
@@ -32,14 +35,16 @@ public class Main {
     }
 
     static void printHelp() {
+        System.out.println("You can use multiple commands after one another to queue tasks.");
         System.out.println("-help: Prints this.");
         System.out.println("-build    <inpath> <outpath> : Compiles and assembles a program.");
         System.out.println("-compile  <inpath> <outpath> : Compiles Filmstock into Filmstock Assembly.");
         System.out.println("-assemble <inpath> <outpath> : Assembles Filmstock Assembly into bytecode.");
         System.out.println("-build    <inpath> <outpath> : Compiles and assembles a program.");
         System.out.println("-test                        : Compiles test.script to test.aroll and assembles it into test.roll.");
+        System.out.println("-debug                       : When compiling, you can use the debug flag to " +
+                "debug a lot of info about the next Compilation / Assembly.");
         System.out.println("                            -> Used for quick debugging.");
-
     }
 
     public static void main(String[] args) {
@@ -49,47 +54,66 @@ public class Main {
             return;
         }
 
-        try {
-            switch (args[0]) {
-                case "-test":
-                    testMain(Arrays.copyOfRange(args, 1, args.length));
-                    break;
+        int lastStatement = 0;
 
-                case "-build":
-                    if (args.length != 3) {
-                        System.err.println("Usage: -build <inpath> <outpath>");
-                        return;
-                    }
-                    build(args[1], args[2]);
-                    break;
+        while (lastStatement < args.length) {
+            try {
+                switch (args[lastStatement]) {
+                    case "-test":
+                        testMain(Arrays.copyOfRange(args, 1, args.length));
+                        lastStatement++;
+                        debug = false;
+                        break;
 
-                case "-assemble":
-                    if (args.length != 3) {
-                        System.err.println("Usage: -assemble <inpath> <outpath>");
-                        return;
-                    }
-                    assemble(args[1], args[2]);
-                    break;
+                    case "-build":
+                        if (args.length - lastStatement < 3) {
+                            System.err.println("Usage: -build <inpath> <outpath>");
+                            return;
+                        }
+                        build(args[1+lastStatement], args[2+lastStatement]);
+                        lastStatement += 3;
+                        debug = false;
+                        break;
 
-                case "-compile":
-                    if (args.length != 3) {
-                        System.err.println("Usage: -compile <inpath> <outpath>");
-                        return;
-                    }
-                    compile(args[1], args[2]);
-                    break;
+                    case "-assemble":
+                        if (args.length - lastStatement < 3) {
+                            System.err.println("Usage: -assemble <inpath> <outpath>");
+                            return;
+                        }
+                        assemble(args[1+lastStatement], args[2+lastStatement]);
+                        lastStatement += 3;
+                        debug = false;
+                        break;
 
-                case "-help":
-                    printHelp();
-                    break;
+                    case "-compile":
+                        if (args.length - lastStatement < 3) {
+                            System.err.println("Usage: -compile <inpath> <outpath>");
+                            return;
+                        }
+                        compile(args[1+lastStatement], args[2+lastStatement]);
+                        lastStatement += 3;
+                        debug = false;
+                        break;
 
-                default:
-                    System.err.println("Unknown argument: " + args[0]);
-                    printHelp();
-                    break;
+                    case "-help":
+                        lastStatement++;
+                        printHelp();
+                        break;
+
+                    case "-debug":
+                        debug = true;
+                        lastStatement++;
+                        break;
+
+                    default:
+                        System.err.println("Unknown argument: " + args[0]);
+                        lastStatement++;
+                        printHelp();
+                        break;
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 }
