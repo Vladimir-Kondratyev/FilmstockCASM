@@ -419,7 +419,7 @@ public class ArithmeticCompiler {
         for (String tokenString : tokensStrings) {
             Object token;
             if (compiler.doesVarExist(tokenString))
-                token = compiler.get(tokenString, line);
+                token = compiler.sget(tokenString, line);
 
             else if (isNumerical(tokenString)){
                 double value = Double.parseDouble(tokenString);

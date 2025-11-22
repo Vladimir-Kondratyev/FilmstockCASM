@@ -1,18 +1,19 @@
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class Compiler {
     public static class Line {
         public String code;
         public String id;
+        public boolean enterContext = false;
+        public boolean exitContext = false;
 
-        public Line(String code, String id) {
+        public Line(String code, String id, boolean enterContext, boolean exitContext) {
             this.code = code;
             this.id = id;
+            this.enterContext = enterContext;
+            this.exitContext = exitContext;
         }
     }
 
@@ -95,7 +96,7 @@ public class Compiler {
 
             String sub = l.id.substring(0, lastLine) + macroName + l.id.substring(lastLine+4);
 
-            compiledMacro.add(new Line(l.code.substring(0), lineObject.id + " -> " + sub));
+            compiledMacro.add(new Line(l.code.substring(0), lineObject.id + " -> " + sub, l.enterContext, l.exitContext));
         }
 
         for (int l = 0; l < compiledMacro.size(); l++) {
@@ -125,14 +126,20 @@ public class Compiler {
                             + line.substring(beginning + argumentLength);
                 }
 
-                compiledMacro.set(l, new Line(line, compiledMacro.get(l).id));
+                compiledMacro.set(l, new Line(line, compiledMacro.get(l).id,
+                        compiledMacro.get(l).enterContext, compiledMacro.get(l).exitContext));
             }
         }
 
         String replace = macroName.toUpperCase() + "MACRO";
         for (int i = 0; i < compiledMacro.size(); i++) {
-            compiledMacro.set(i, new Line(compiledMacro.get(i).code.replace("__", replace), compiledMacro.get(i).id));
+            compiledMacro.set(i, new Line(compiledMacro.get(i).code.replace("__", replace),
+                    compiledMacro.get(i).id, compiledMacro.get(i).enterContext,compiledMacro.get(i).exitContext));
         }
+
+        compiledMacro.get(0).enterContext = true;
+
+        compiledMacro.get(compiledMacro.size()-1).exitContext = true;
 
         return compiledMacro;
     }
@@ -244,7 +251,8 @@ public class Compiler {
                 line = line.split("//")[0];
 
                 if (!line.isEmpty())
-                    clean.add(new Line(line, String.format("%s - Line: %d", path, lineCounter)));
+                    clean.add(new Line(line, String.format("%s - Line: %d", path, lineCounter)
+                            , false, false));
 
                 lineCounter++;
             }
@@ -256,13 +264,51 @@ public class Compiler {
     }
 
     public List<AssemblyOperation> compileLine(Line input, Variable returnVar) {
+        if (Objects.equals(input.code, "{")) {
+            newContext();
+            return new ArrayList<>();
+        }
+        if (Objects.equals(input.code, "}")) {
+            exitContext();
+            return new ArrayList<>();
+        }
+
+        if (input.enterContext) {
+            newContext();
+        }
+
         if (Main.debug)
             System.out.printf("Compiling line: %s%nCODE: %s%n", input.id, input.code);
 
+        String toCompile = input.code;
+        // Allocate a new variable.
+        if (toCompile.startsWith("var ")) {
+            // Parse the variable name
+            toCompile = toCompile.substring(4);
+
+            // System.out.printf("To COMPILE: %s%n", toCompile);
+
+            int end = toCompile.indexOf(' ');
+
+            if (end == -1) {
+                end = toCompile.indexOf('=');
+            }
+
+            // System.out.printf("END: %d%n", end);
+
+            if (end == -1) {
+                end = toCompile.length();
+            }
+
+            String name = toCompile.substring(0, end);
+
+            screate(name, input);
+        }
+
         // If this is a = statement, separate :)
-        String cInput = input.code;
-        if (input.code.contains("=")) {
-            String[] separated = input.code.split("=");
+        String cInput = toCompile;
+        if (toCompile.contains("=")) {
+            String[] separated = toCompile.split("=");
 
             if (separated.length < 2) {
                 throw new CompilationException("Missing value after \"=\"!", input);
@@ -272,13 +318,10 @@ public class Compiler {
                 throw new CompilationException("You may only have one \"=\" per line!", input);
             }
 
-            if (input.code.charAt(separated[0].length()-1) != '\\') {
+            if (toCompile.charAt(separated[0].length()-1) != '\\') {
                 separated[0] = separated[0].replace(" ", "");
 
-                if (doesVarExist(separated[0]))
-                    returnVar = get(separated[0], input);
-                else
-                    throw new CompilationException(String.format("Variable %s does not exist!", separated[0]), input);
+                returnVar = sget(separated[0], input);
                 cInput = separated[1].replace(" ", "");
             }
         }
@@ -302,6 +345,9 @@ public class Compiler {
             throw e;
         }
 
+        if (input.exitContext)
+            exitContext();
+
         return operations;
     }
 
@@ -323,7 +369,7 @@ public class Compiler {
 
         // Condition
         Variable condition = getTemporary();
-        operations.addAll(compileLine(new Line(conditionString, conditionId), condition));
+        operations.addAll(compileLine(new Line(conditionString, conditionId, false, false), condition));
 
         // Create headers
         Variable ifBodyHeader = getHeader(1);
@@ -389,7 +435,7 @@ public class Compiler {
 
         //#region Initialization
         // Initialize the variable if not already
-        forExpressions[0] = allocate(forExpressions[0]);
+        // forExpressions[0] = allocate(forExpressions[0]);
 
         boolean isInitEmpty = forExpressions[0].isEmpty();
 
@@ -400,7 +446,8 @@ public class Compiler {
             startHeaderId = getLatestHeaderId();
 
             // Add initialization lines
-            operations.addAll(compileLine(new Line(forExpressions[0], firstId), null));
+            operations.addAll(compileLine(new Line(forExpressions[0], firstId,
+                    false, false), null));
 
             // Add header after initialization
             operations.get(operations.size()-1).headers.add(startHeaderId);
@@ -422,7 +469,8 @@ public class Compiler {
             forExpressions[1] = "0";
         }
 
-        operations.addAll(compileLine(new Line(forExpressions[1], firstId), condition));
+        operations.addAll(compileLine(new Line(forExpressions[1], firstId,
+                false, false), condition));
         // Break operation is what is executed for "break" lines.
         AssemblyOperation breakOperation = new AssemblyOperation(Type.JUMP, new Variable[] {endHeaderBreak});
 
@@ -439,7 +487,8 @@ public class Compiler {
 
         //#region Update
         if (!forExpressions[2].isEmpty())
-            operations.addAll(compileLine(new Line(forExpressions[2], firstId), null));
+            operations.addAll(compileLine(new Line(forExpressions[2], firstId,
+                    false, false), null));
         //#endregion
 
         // Add jump to start
@@ -453,6 +502,7 @@ public class Compiler {
     }
 
     public List<AssemblyOperation> compilePart(List<Line> input, AssemblyOperation breakStatement) {
+        newContext();
         List<AssemblyOperation> operations = new ArrayList<>();
         List<String> clean = new ArrayList<>();
 
@@ -500,6 +550,7 @@ public class Compiler {
             }
         }
 
+        exitContext();
         return operations;
     }
 
@@ -534,15 +585,6 @@ public class Compiler {
             throw new CompilationException("Unclosed statement / braces \"{\"!", input.get(start));
 
         return end;
-    }
-
-    private String allocate(String statement) {
-        if (statement.startsWith("var ")) {
-            String varString = statement.substring(3);
-            get(varString.split("=")[0].replace(" ", ""), null);
-            return statement.substring(4);
-        }
-        return statement;
     }
 
     private List<Line> inlineMacros(List<Line> input) {
@@ -582,6 +624,7 @@ public class Compiler {
 
             ret = new ArrayList<>(output);
         }
+
         return ret;
     }
 
@@ -629,7 +672,7 @@ public class Compiler {
                 String out = "lset(" + seprarated[0] + ", " + seprarated[1]
                         + ", " + line.code.split("=")[1] + ")";
 
-                result.add(new Line(out, line.id));
+                result.add(new Line(out, line.id, line.enterContext, line.exitContext));
             }
             else {
                 result.add(line);
@@ -685,7 +728,8 @@ public class Compiler {
                     inline = inline.substring(0, startName) + r + inline.substring(end + 1);
                 }
                 else {
-                    result.add(new Line(inline, line.id));
+                    result.add(new Line(inline, line.id,
+                            line.enterContext, line.exitContext));
                     break;
                 }
             }
@@ -770,7 +814,8 @@ public class Compiler {
                     inline = inline.substring(0, startName) + r + inline.substring(end + 1);
                 }
                 else {
-                    result.add(new Line(inline, line.id));
+                    result.add(new Line(inline, line.id,
+                            line.enterContext, line.exitContext));
                     break;
                 }
             }
@@ -793,7 +838,8 @@ public class Compiler {
                     fin = leftPart + "=" + rightPart;
                 }
 
-                input.set(line, new Line(fin, input.get(line).id));
+                input.set(line, new Line(fin, input.get(line).id,
+                        input.get(line).enterContext, input.get(line).exitContext));
             }
         }
     }
@@ -824,22 +870,6 @@ public class Compiler {
                 System.out.println(line.code);
             }
             System.out.println();
-        }
-
-        // Allocate variables.
-        for (int i = 0; i < clean.size(); i++) {
-            if (clean.get(i).code.startsWith("var ")) {
-                String oldString = clean.get(i).code.substring(0);
-                clean.set(i, new Line(clean.get(i).code.substring(4), clean.get(i).id));
-                get(clean.get(i).code.split("=")[0].replace(" ", ""), new Line(oldString, clean.get(i).id));
-            }
-            else if (clean.get(i).code.startsWith("for")) {
-                String noFor = clean.get(i).code.substring(3);
-                String firstPart = noFor.split(";")[0].strip();
-                if (firstPart.startsWith("var ")) {
-                    get(firstPart.split("=")[0].substring(3).replace(" ", ""), clean.get(i));
-                }
-            }
         }
 
         List<AssemblyOperation> operations = new ArrayList<>(compilePart(clean, null));
@@ -897,16 +927,19 @@ public class Compiler {
             for (char c : line.code.toCharArray()) {
                 if (c == '{' || c == '}') {
                     if (token.length() > 0) {
-                        result.add(new Line(token.toString(), line.id));
+                        result.add(new Line(token.toString(), line.id,
+                                line.enterContext, line.exitContext));
                         token.setLength(0);
                     }
-                    result.add(new Line(String.valueOf(c), line.id));
+                    result.add(new Line(String.valueOf(c), line.id,
+                            line.enterContext, line.exitContext));
                 } else {
                     token.append(c);
                 }
             }
             if (token.length() > 0) {
-                result.add(new Line(token.toString(), line.id));
+                result.add(new Line(token.toString(), line.id,
+                        line.enterContext, line.exitContext));
             }
         }
 
@@ -914,7 +947,8 @@ public class Compiler {
         List<Line> returnVal = new ArrayList<>();
         for (Line line : result) {
             if (!line.code.trim().isEmpty()) {
-                returnVal.add(new Line(line.code.trim(), line.id));
+                returnVal.add(new Line(line.code.trim(), line.id,
+                        line.enterContext, line.exitContext));
             }
         }
 
@@ -950,52 +984,31 @@ public class Compiler {
         currentTemporaryVar = 0;
     }
 
-    List<Variable> variables = new ArrayList<>();
-    List<String> names = new ArrayList<>();
+    VariableStack stack = new VariableStack();
 
-    public Variable get(String name, Line line) {
-        int forbiddenChar = -1; // default: none found
-        for (char c : name.toCharArray()) {
-            if (FORBIDDEN_SYMBOLS.indexOf(c) >= 0) {
-                forbiddenChar = FORBIDDEN_SYMBOLS.indexOf(c);
-                break;
-            }
-        }
-
-        if (forbiddenChar != -1) {
-            String error = String.format("Variable %s uses forbidden symbol: \"%s\"", name, FORBIDDEN_SYMBOLS.charAt(forbiddenChar));
-            if (line != null) {
-                throw new CompilationException(
-                        error,
-                        line
-                );
-            }
-            else {
-                throw new CompilationException(
-                        error
-                );
-            }
-        }
-
-        for (int i = 0; i < variables.size(); i++) {
-            if (Objects.equals(names.get(i), name))
-                return variables.get(i);
-        }
-
-        Variable newVar = new Variable(name);
-
-        variables.add(newVar);
-        names.add(name);
-
-        return newVar;
+    public Variable sget(String name, Line line) {
+        return stack.request(name, line);
     }
 
-    public boolean doesVarExist(String name){
-        for (int i = 0; i < variables.size(); i++) {
-            if (Objects.equals(names.get(i), name))
+    public Variable screate(String name, Line line) {
+        return stack.create(name, line);
+    }
+
+    public boolean doesVarExist(String name) {
+        for (String string : stack.namesList) {
+            if (Objects.equals(name, string)) {
                 return true;
+            }
         }
         return false;
+    }
+
+    public void newContext() {
+        stack.pushNewContext();
+    }
+
+    public void exitContext() {
+        stack.exitContext();
     }
 
     List<Variable> constants = new ArrayList<>();
@@ -1008,6 +1021,7 @@ public class Compiler {
         }
 
         Variable newVar = new Variable(Double.toString(value));
+        newVar.isConstant = true;
 
         constants.add(newVar);
         constantValues.add(value);
@@ -1036,7 +1050,7 @@ public class Compiler {
             var.memoryPosition = currentId++;
         }
 
-        for (Variable var : variables) {
+        for (Variable var : stack.variableList) {
             var.memoryPosition = currentId++;
         }
 
@@ -1079,20 +1093,21 @@ public class Compiler {
                 );
             }
 
-            if (variables.isEmpty()) {
+            if (stack.variableList.isEmpty()) {
                 System.out.println("No variables.");
             } else {
-                System.out.println(variables.size() + " variables with memory positions from " + variables.get(0).memoryPosition +
-                        " to " + variables.get(variables.size() - 1).memoryPosition + ".");
+                System.out.println(stack.variableList.size() + " variables with memory positions from " + stack.variableList.get(0).memoryPosition +
+                        " to " + stack.variableList.get(stack.variableList.size() - 1).memoryPosition + ".");
             }
 
             System.out.println("The compilation was successful!");
         }
     }
 
-    public class Variable {
+    public static class Variable {
         int memoryPosition;
         final String debugName;
+        public boolean isConstant = false;
         public int macroTempId = -1;
 
         public Variable(String debugName) {
@@ -1102,6 +1117,91 @@ public class Compiler {
         @Override
         public String toString() {
             return "Variable: " + debugName;
+        }
+    }
+
+    private static class VariableStack {
+        List<String> namesList;
+
+        List<Variable> variableList;
+        Stack<Integer> stackPositions;
+        int currentIndex = 0;
+
+        public VariableStack() {
+            stackPositions = new Stack<>();
+            namesList = new ArrayList<>();
+            variableList = new ArrayList<>();
+
+            pushNewContext();
+        }
+
+        public Variable request(String name, Line debugLine) {
+            int found = -1;
+
+            for (int i = namesList.size() - 1; i > -1; i--) {
+                if (Objects.equals(namesList.get(i), name)) {
+                    found = i;
+                    break;
+                }
+            }
+
+            if (found == -1) {
+                throw new CompilationException(String.format("Variable %s not found!", name), debugLine);
+            }
+
+            else return variableList.get(found);
+        }
+
+        public Variable create(String name, Line debugLine) {
+            int found = -1;
+
+            for (int i = 0; i < namesList.size(); i++) {
+                if (Objects.equals(namesList.get(i), name)) {
+                    found = i;
+                    break;
+                }
+            }
+
+            if (found != -1) {
+                int currentContextStart = stackPositions.peek();
+
+                if (found >= currentContextStart) {
+                    throw new CompilationException(String.format("Variable %s already exists in " +
+                            "the current context!", name), debugLine);
+                }
+                else {
+                    System.out.printf("Note: Variable %s shadows a variable from an outer context.", name);
+                }
+            }
+
+            // If the current Stack size is not sufficient for the new variable
+            if (currentIndex == variableList.size()) {
+                Variable newStackVar = new Variable("Stack Variable " + variableList.size());
+                namesList.add(name);
+                variableList.add(newStackVar);
+
+                currentIndex++;
+                return newStackVar;
+            }
+            else {
+                Variable stackVar = variableList.get(currentIndex);
+                namesList.add(name);
+
+                currentIndex++;
+                return stackVar;
+            }
+        }
+
+        public void pushNewContext() {
+            stackPositions.push(currentIndex);
+        }
+
+        public void exitContext() {
+            int toReset = stackPositions.pop();
+
+            currentIndex = toReset;
+            // Remove old names
+            namesList.subList(toReset, namesList.size()).clear();
         }
     }
 
@@ -1228,7 +1328,7 @@ public class Compiler {
             for (int i = 0; i < children.size() - 1; i++) {
                 sb.append(children.get(i).toString(prefix + (isTail ? "    " : "│   "), false));
             }
-            if (children.size() > 0) {
+            if (!children.isEmpty()) {
                 sb.append(children.get(children.size() - 1)
                         .toString(prefix + (isTail ? "    " : "│   "), true));
             }
@@ -1264,9 +1364,21 @@ public class Compiler {
         else {
             // Don't copy in iterations
             if (node.value.getOpType() == OPType.FUNCTION_CALL &&
-                    (   Objects.equals(node.function, "it") ||
+                    (Objects.equals(node.function, "it") ||
                     Objects.equals(node.function, "ia"))){
-                node.children.get(0).value.doCopy = false;
+
+                // We should not allow the user to change the constant values.
+                if (!node.children.get(0).value.variable.isConstant) {
+                    node.children.get(0).value.doCopy = false;
+                }
+            }
+
+            // Setup doCopy to be false for everything but the first variable, because it's the only one which is written into
+            for (int i = 1; i < node.children.size(); i++) {
+                if (node.children.get(i).value.isVariable &&
+                    node.value.getOpType() != OPType.FUNCTION_CALL) {
+                    node.children.get(i).value.doCopy = false;
+                }
             }
 
             // Execute and compile the instructions of the children.
@@ -1974,7 +2086,6 @@ public class Compiler {
             default -> throw new CompilationException("Unknown built in function id: " + id, line);
         };
     }
-
 
     public Type fromOP(OPType opType) {
         return switch (opType) {
