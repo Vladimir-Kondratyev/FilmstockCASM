@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Filmstock:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/Filmstock_jar</output-path>
+    <root id="archive" name="Filmstock.jar">
+      <element id="module-output" name="FilmStock" />
+    </root>
+  </artifact>
+</component>

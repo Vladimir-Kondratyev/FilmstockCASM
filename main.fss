@@ -1,0 +1,8 @@
+var a = 10
+
+#makeA()
+
+#macro makeA() {
+    var a = 12
+    nl()
+}

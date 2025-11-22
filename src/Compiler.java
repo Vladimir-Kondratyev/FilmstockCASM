@@ -867,7 +867,13 @@ public class Compiler {
         if (Main.debug) {
             System.out.println("Formatted code:");
             for (Line line : clean) {
+                if (line.enterContext) {
+                    System.out.println("{");
+                }
                 System.out.println(line.code);
+                if (line.exitContext) {
+                    System.out.println("}");
+                }
             }
             System.out.println();
         }
@@ -1170,7 +1176,7 @@ public class Compiler {
                             "the current context!", name), debugLine);
                 }
                 else {
-                    System.out.printf("Note: Variable %s shadows a variable from an outer context.", name);
+                    System.out.printf("Note: Variable %s shadows a variable from an outer context.%n", name);
                 }
             }
 
@@ -1502,7 +1508,8 @@ public class Compiler {
             "mouseY",
             "getScroll",
             "width",
-            "height"
+            "height",
+            "nl"
     };
 
     public static final int[] BUILT_IN_FUNCTION_ARG_AMOUNT = new int[] {
@@ -1560,7 +1567,8 @@ public class Compiler {
             0,    //"mouseY",
             0,    //"getScroll",
             0,    //"width",
-            0    //"height"
+            0,    //"height"
+            0     //"nl"
     };
 
     public List<AssemblyOperation> getAssemblyOfBuiltIn(int functionId, Variable[] arguments, Line line) {
@@ -1599,7 +1607,7 @@ public class Compiler {
                 result.add(new AssemblyOperation(Type.POWER, new Variable[] {arguments[0], getConstant(0.5), arguments[0]}));
                 break;
             case 12:
-                // Print the numbers separated with ", " and ending with a new line.
+                // Print the numbers separated with ", " and not ending with a new line.
                 for (int i = 0; i < arguments.length; i++) {
                     result.add(new AssemblyOperation(Type.PRINT_NUMBERS, new Variable[] {arguments[i]}));
                     if (i < arguments.length - 1) {
@@ -1607,7 +1615,7 @@ public class Compiler {
                         result.add(new AssemblyOperation(Type.PRINT, new Variable[]{getConstant(ASCII.SPACE)}));
                     }
                 }
-                result.add(new AssemblyOperation(Type.PRINT, new Variable[]{getConstant(ASCII.NEW_LINE)}));
+                // result.add(new AssemblyOperation(Type.PRINT, new Variable[]{getConstant(ASCII.NEW_LINE)}));
                 result.add(new AssemblyOperation(Type.UPDATE_CONSOLE, new Variable[] {}));
                 break;
             case 13:
@@ -1760,6 +1768,9 @@ public class Compiler {
                 break;
             case 54: // Height
                 result.add(new AssemblyOperation(Type.GET_HEIGHT, new Variable[] {arguments[0]}));
+                break;
+            case 55: // new line
+                result.add(new AssemblyOperation(Type.PRINT, new Variable[]{getConstant(ASCII.NEW_LINE)}));
                 break;
             default:
                 throw new CompilationException("Unknown built-in function with id: " + functionId, line);
