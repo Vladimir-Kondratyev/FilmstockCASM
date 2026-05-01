@@ -1,8 +1,0 @@
-length = 5
-set 1 10.0
-set 2 12.0
-copy 1 0
-copy 0 3
-copy 2 0
-copy 0 4
-print 1 1

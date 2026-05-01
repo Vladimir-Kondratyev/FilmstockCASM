@@ -1,9 +1,0 @@
-length = 6
-set 3 0.0
-set 4 3.0
-newList 0
-copy 0 5
-copy 5 0
-copy 3 1
-copy 4 2
-listSet 0 1 2
