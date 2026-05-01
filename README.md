@@ -238,7 +238,7 @@ end 6               // halt with exit code film[6]
 - First line must be `length N`.
 - All `set INDEX VALUE` lines must appear contiguously immediately after the length line.
 - `//` comments are stripped by the assembler.
-- Full opcode reference: [FilmstockBin](https://github.com/Vovencio/FilmstockBin).
+- Full opcode reference: [FilmstockVM](https://github.com/Vovencio/FilmstockVM).
 
 ### Memory layout
 
