@@ -453,7 +453,20 @@ public class ArithmeticCompiler {
                     if (getPriority(operationTokens.get(o), line) == j) {
                         Compiler.Node[] children = new Compiler.Node[2];
                         for (int k = 1; k >= 0; k--)  {
-                            Object token = tokens.get(o + k);
+                            Object token;
+                            try {
+                                token = tokens.get(o + k);
+                            }
+                            catch (Exception e) {
+                                if (line.code.contains("++")) {
+                                    System.out.println("Try using it() or ia().");
+                                }
+                                else                                 if (line.code.contains("--")) {
+                                    System.out.println("Try using -=.");
+                                }
+                                System.out.println("Unsupported type of expression: " + line.code + "\n" + line.id + "\n");
+                                throw e;
+                            }
                             if (token instanceof Compiler.Variable varToken) {
                                 children[k] = compiler.nodeFromData(varToken);
                             } else if (token instanceof Compiler.Node nodeToken) {

@@ -250,6 +250,8 @@ public class Assembler {
         separated[2] = new String[input.length - lastSetLine - 1];
         for (int i = lastSetLine+1; i < input.length; i++) {
             separated[2][i-lastSetLine-1] = input[i];
+
+            //System.out.println(input[i]);
         }
 
         return separated;

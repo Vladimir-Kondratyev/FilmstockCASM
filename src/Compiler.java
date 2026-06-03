@@ -1,8 +1,20 @@
 import java.io.*;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.regex.Pattern;
 
 public class Compiler {
+    /**
+     * Amount of optimizations to apply:
+     * 0 - None
+     * 1 - Avoid copies
+     * 2 - Loop unrolling
+     * >2 - Same as 2
+     */
+    public static int optimizationLevel = 0;
+
+    public static final int maxOptimizations = 1;
+
     public static class Line {
         public String code;
         public String id;
@@ -14,6 +26,11 @@ public class Compiler {
             this.id = id;
             this.enterContext = enterContext;
             this.exitContext = exitContext;
+        }
+
+        @Override
+        public String toString() {
+            return code + ((enterContext) ? "ENT" : "") + (exitContext ? "EXT" : "");
         }
     }
 
@@ -30,6 +47,8 @@ public class Compiler {
         currentTemporaryVar++;
         if (currentTemporaryVar > temporaryVariables.size()) {
             Variable newVar = new Variable("Temp: " + currentTemporaryVar);
+            newVar.isTemporary = true;
+
             temporaryVariables.add(newVar);
             return newVar;
         }
@@ -351,7 +370,8 @@ public class Compiler {
         return operations;
     }
 
-    public List<AssemblyOperation> parseIf (List<Line> input, List<Line> elseLines, AssemblyOperation breakStatement){
+    public List<AssemblyOperation> parseIf (List<Line> input, List<Line> elseLines,
+                                            AssemblyOperation breakStatement, AssemblyOperation continueOperation){
         List<AssemblyOperation> operations = new ArrayList<>();
 
         // Parse condition
@@ -382,18 +402,168 @@ public class Compiler {
         operations.add(new AssemblyOperation(Type.JUMP_IF, new Variable[] {condition, ifBodyHeader}));
 
         // Add else Lines
-        operations.addAll(compilePart(elseLines, null));
+        operations.addAll(compilePart(elseLines, breakStatement, continueOperation));
         operations.add(new AssemblyOperation(Type.JUMP, new Variable[] {endHeader}));
 
         // Add header to which we jump if the condition is true
         operations.get(operations.size()-1).headers.add(ifBodyHeaderId);
 
         List<Line> linesToExecute = input.subList(2, input.size()-1);
-        operations.addAll(compilePart(linesToExecute, breakStatement));
+        operations.addAll(compilePart(linesToExecute, breakStatement, continueOperation));
 
         // Add header to which we jump if the condition was false
         operations.get(operations.size()-1).headers.add(endHeaderId);
         return operations;
+    }
+
+    private record UnrolledFor(List<Line> forContent, List<Line> cleanUp) {}
+
+    private UnrolledFor unrollFor(List<Line> input) {
+        //#region Setup
+        String firstLine = input.get(0).code;
+        String cleanFirst = firstLine.substring(3);
+
+        String firstId = input.get(0).id;
+
+        cleanFirst = cleanFirst.replaceAll(";", " ; ");
+
+        // 0 = Initialization
+        // 1 = Condition
+        // 2 = Update
+        String[] forExpressions = cleanFirst.split(";");
+        String init = forExpressions[0].strip();
+
+        //#endregion
+
+        UnrolledFor returnFail = new UnrolledFor(input, new ArrayList<>());
+
+        // Do not unroll too long loops
+        if (input.size() > 50 || !init.contains("=") || optimizationLevel < 2) {
+            return returnFail;
+        }
+
+        String i = init.split("=")[0].replace(" ", "");
+
+        double startingValue = 0;
+        try {
+            String parseFrom = init.split("=")[1].replace(" ", "");
+
+            startingValue = Double.parseDouble(parseFrom);
+        }
+        catch (Exception e) {
+            return returnFail;
+        }
+
+        if (init.startsWith("var ")) {
+            i = i.substring(3);
+        }
+
+        if (i.isEmpty()) {
+            return returnFail;
+        }
+
+        // Look at update
+        String update = forExpressions[2].replace(" ", "");
+
+        if (!update.equals("it(" + i + ")") && !update.equals(i + "+=1")) {
+            return returnFail;
+        }
+
+        // Look at condition
+        String condition = forExpressions[1].replace(" ", "");
+
+        if (!condition.contains("<")) {
+            return returnFail;
+        }
+
+        String shouldBeI = condition.split("<")[0];
+        String shouldBeConstant = condition.split("<")[1];
+
+        if (!shouldBeI.replace(" ", "").equals(i)) {
+            return returnFail;
+        }
+
+        double endValue = 0;
+        try {
+            String parseFrom = shouldBeConstant.replace(" ", "");
+
+            endValue = Double.parseDouble(parseFrom);
+        }
+        catch (Exception e) {
+            return returnFail;
+        }
+
+        long loopAmount = (long) (endValue - startingValue);
+
+        final long unrollingFactor = 20;
+
+        long cleanUpAmount = loopAmount % unrollingFactor;
+        long realLoopAmount = loopAmount - cleanUpAmount;
+
+        List<Line> body = input.subList(2, input.size() - 1);
+
+        for (Line l : body) {
+            String noSpaces = l.code.replace(" ", "");
+
+            // If line edits i
+            if (noSpaces.startsWith(i) || noSpaces.contains("ia(" + i + ")") ||
+                    noSpaces.contains("it(" + i + ")")) {
+                return returnFail;
+            }
+        }
+
+        List<Line> forBody = new ArrayList<>();
+        List<Line> cleanUp = new ArrayList<>();
+
+        if (realLoopAmount > 0) {
+
+            String endStr = new BigDecimal(realLoopAmount + startingValue)
+                    .stripTrailingZeros()
+                    .toPlainString();
+            String startStr = new BigDecimal(startingValue)
+                    .stripTrailingZeros()
+                    .toPlainString();
+
+            forBody.add(
+                    new Line("for var " + i + "=" + startingValue
+                            + ";" + i + "<" + endStr + ";it(" + i + ")",
+                            input.get(0).id, false, false
+                    )
+            );
+            forBody.add(
+                    new Line("{",
+                            input.get(0).id, false, false
+                    )
+            );
+            for (int j = 0; j < unrollingFactor - 1; j++) {
+                forBody.addAll(body);
+                forBody.add(new Line("it(" + i + ")",
+                        input.get(0).id, false, false
+                ));
+            }
+            forBody.addAll(body);
+
+            forBody.add(
+                    new Line("}",
+                            input.get(0).id, false, false
+                    )
+            );
+
+        }
+
+        if (cleanUpAmount > 0) {
+            cleanUpAmount--;
+            cleanUp.addAll(body);
+
+            for (int j = 0; j < cleanUpAmount; j++) {
+                    cleanUp.add(new Line("it(" + i + ")",
+                        input.get(0).id, false, false
+                ));
+                cleanUp.addAll(body);
+            }
+        }
+
+        return new UnrolledFor(forBody, cleanUp);
     }
 
     public List<AssemblyOperation> parseFor (List<Line> input) {
@@ -415,9 +585,9 @@ public class Compiler {
             throw new CompilationException("You must use three statements separated by \";\" in a for statement!", input.get(0));
         }
 
-        for (String forExpression : forExpressions) {
-            if (forExpression.replace(" ", "").isEmpty()) {
-                throw new CompilationException("You may not have empty expressions in a for loop. Try adding 0 instead.", input.get(0));
+        for (int i = 0; i < forExpressions.length; i++) {
+            if (forExpressions[i].replace(" ", "").isEmpty()) {
+                forExpressions[i] = "0";
             }
         }
 
@@ -441,6 +611,10 @@ public class Compiler {
 
         Variable startHeader;
         int startHeaderId;
+
+        Variable updateHeader = getHeader(0);
+        int updateHeaderId = getLatestHeaderId();
+
         if (!isInitEmpty) {
             startHeader = getHeader(1);
             startHeaderId = getLatestHeaderId();
@@ -457,6 +631,8 @@ public class Compiler {
             startHeaderId = getLatestHeaderId();
         }
         //#endregion
+
+        AssemblyOperation continueOperation = new AssemblyOperation(Type.JUMP, new Variable[] {updateHeader});
 
         //#region Condition
         // Initialize condition
@@ -483,12 +659,20 @@ public class Compiler {
 
         // Add main part
         List<Line> stringsToExecute = input.subList(2, input.size()-1);
-        operations.addAll(compilePart(stringsToExecute, breakOperation));
+        operations.addAll(compilePart(stringsToExecute, breakOperation, continueOperation));
 
         //#region Update
-        if (!forExpressions[2].isEmpty())
-            operations.addAll(compileLine(new Line(forExpressions[2], firstId,
-                    false, false), null));
+        if (!forExpressions[2].isEmpty()) {
+            List<AssemblyOperation> update = compileLine(new Line(forExpressions[2], firstId,
+                    false, false), null);
+
+            update.get(0).headers.add(updateHeaderId);
+            operations.addAll(update);
+        }
+        else {
+            operations.get(operations.size()-1).headers.add(updateHeaderId);
+        }
+
         //#endregion
 
         // Add jump to start
@@ -501,7 +685,7 @@ public class Compiler {
         return operations;
     }
 
-    public List<AssemblyOperation> compilePart(List<Line> input, AssemblyOperation breakStatement) {
+    public List<AssemblyOperation> compilePart(List<Line> input, AssemblyOperation breakStatement, AssemblyOperation continueStatement) {
         newContext();
         List<AssemblyOperation> operations = new ArrayList<>();
         List<String> clean = new ArrayList<>();
@@ -509,6 +693,8 @@ public class Compiler {
         for (Line line : input) {
             clean.add(line.code);
         }
+
+        // TODO: ADD CONTINUE
 
         for (int i = 0; i < input.size(); i++) {
 
@@ -527,22 +713,37 @@ public class Compiler {
                 if (elseEnd != end) {
                     elseLines = input.subList(end+3,elseEnd);
                 }
-                operations.addAll(parseIf(input.subList(i, end+1), elseLines, breakStatement));
+                operations.addAll(parseIf(input.subList(i, end+1), elseLines, breakStatement, continueStatement));
 
                 i = end + (elseEnd - end);
             }
             else if (clean.get(i).startsWith("for")){
                 int end = findEndOfStatement(i, input);
 
-                operations.addAll(parseFor(input.subList(i, end+1)));
+                UnrolledFor uf = unrollFor(input.subList(i, end+1));
+
+                if (!uf.forContent.isEmpty()) {
+                    operations.addAll(parseFor(uf.forContent));
+                }
+
+                if (!uf.cleanUp.isEmpty()) {
+                    operations.addAll(compilePart(uf.cleanUp, breakStatement, continueStatement));
+                }
 
                 i = end;
             }
-            else if (Objects.equals(clean.get(i), "break")){
+            else if (Objects.equals(clean.get(i), "break")) {
                 if (breakStatement == null)
                     throw new CompilationException("Using a break statement outside a loop!", input.get(i));
                 else {
                     operations.add(breakStatement);
+                }
+            }
+            else if (Objects.equals(clean.get(i), "continue")){
+                if (continueStatement == null)
+                    throw new CompilationException("Using a continue statement outside a loop!", input.get(i));
+                else {
+                    operations.add(continueStatement);
                 }
             }
             else {
@@ -739,6 +940,7 @@ public class Compiler {
     }
 
     public List<Line> functionListSugar(List<Line> input) {
+
         List<Line> result = new ArrayList<>();
 
         for (Line line : input) {
@@ -878,7 +1080,13 @@ public class Compiler {
             System.out.println();
         }
 
-        List<AssemblyOperation> operations = new ArrayList<>(compilePart(clean, null));
+        List<AssemblyOperation> operations = new ArrayList<>(compilePart(clean, null, null));
+
+        if (optimizationLevel > 0) {
+            operations = AssemblyOptimizer.optimizeAll(operations);
+        }
+
+        operations.add(new AssemblyOperation(Type.END, new Variable[] {getConstant(0.0)}));
 
         updateMemoryRegs();
 
@@ -1114,6 +1322,7 @@ public class Compiler {
         int memoryPosition;
         final String debugName;
         public boolean isConstant = false;
+        public boolean isTemporary = false;
         public int macroTempId = -1;
 
         public Variable(String debugName) {
@@ -1345,7 +1554,9 @@ public class Compiler {
 
     private List<AssemblyOperation> compileRoot(Node root, Variable writeTo, Line line) {
         dropTemporary();
-        List<AssemblyOperation> operations = compile(root, line);
+        List<AssemblyOperation> operations = compile(root, line, true);
+        // Add the end operation at the end of the computation
+        //operations.add(new AssemblyOperation(Type.END, new Variable[] {getConstant(0.0)}));
 
         if (writeTo != null)
             operations.add(new AssemblyOperation(Type.COPY, new Variable[] {root.value.getVariable(), writeTo}));
@@ -1353,7 +1564,7 @@ public class Compiler {
         return operations;
     }
 
-    private List<AssemblyOperation> compile(Node node, Line line) {
+    private List<AssemblyOperation> compile(Node node, Line line, boolean isRoot) {
         List<AssemblyOperation> result = new ArrayList<>();
 
         if (node.value.isVariable()) {
@@ -1389,13 +1600,14 @@ public class Compiler {
 
             // Execute and compile the instructions of the children.
             for (Node child : node.children)
-                result.addAll(compile(child, line));
+                result.addAll(compile(child, line, false));
 
             switch (node.value.getOpType()){
                 // Default operations with two inputs
                 case POWER, MULTIPLY, DIVIDE, MOD, ADD, SUBTRACT, AND, OR, IS_EQUAL, IS_GREATER, IS_SMALLER:
                     if (node.children.size() != expectedArguments(OPType.ADD)) // Use add, cause all of these use 2.
                         throw new CompilationException("Adding more then two numbers together!", line);
+
                     Variable a = node.children.get(0).value.getVariable();
                     Variable b = node.children.get(1).value.getVariable();
 
@@ -1437,7 +1649,7 @@ public class Compiler {
                             arguments = new Variable[] {getTemporary()};
                         }
 
-                        result.addAll(getAssemblyOfBuiltIn(builtInFunction, arguments, line));
+                        result.addAll(getAssemblyOfBuiltIn(builtInFunction, arguments, line, isRoot));
 
                         node.value.setVariable(arguments[0]); // 0 is the return field for built-in functions.
                     }
@@ -1571,7 +1783,7 @@ public class Compiler {
             0     //"nl"
     };
 
-    public List<AssemblyOperation> getAssemblyOfBuiltIn(int functionId, Variable[] arguments, Line line) {
+    public List<AssemblyOperation> getAssemblyOfBuiltIn(int functionId, Variable[] arguments, Line line, boolean isRoot) {
         List<AssemblyOperation> result = new ArrayList<>();
 
         switch (functionId){
@@ -1592,12 +1804,14 @@ public class Compiler {
                 result.add(new AssemblyOperation(Type.POWER, new Variable[] {arguments[0], temp, arguments[0]}));
                 break;
             case 8: // Iterate
-                Variable tempIterationReturn = getTemporary();
                 result.add(new AssemblyOperation(Type.ITERATE, new Variable[] {arguments[0]}));
 
-                result.add(new AssemblyOperation(Type.COPY, new Variable[] {arguments[0], tempIterationReturn}));
+                if (!isRoot || optimizationLevel == 0) {
+                    Variable tempIterationReturn = getTemporary();
+                    arguments[0] = tempIterationReturn;
+                    result.add(new AssemblyOperation(Type.COPY, new Variable[]{arguments[0], tempIterationReturn}));
+                }
 
-                arguments[0] = tempIterationReturn;
                 break;
             case 9:
                 throw new CompilationException("Usage of discontinued pointer function!", line);
@@ -1625,13 +1839,15 @@ public class Compiler {
                 result.add(new AssemblyOperation(Type.UPDATE_CONSOLE, new Variable[] {}));
                 break;
             case 14: // Iterate After
-                Variable tempIterationAfterReturn = getTemporary();
                 Variable iterateAfter = arguments[0];
 
-                result.add(new AssemblyOperation(Type.COPY, new Variable[] {arguments[0], tempIterationAfterReturn}));
+                if (!isRoot || optimizationLevel == 0) {
+                    Variable tempIterationAfterReturn = getTemporary();
+                    result.add(new AssemblyOperation(Type.COPY, new Variable[]{arguments[0], tempIterationAfterReturn}));
+                    arguments[0] = tempIterationAfterReturn;
+                }
                 result.add(new AssemblyOperation(Type.ITERATE, new Variable[] {iterateAfter}));
 
-                arguments[0] = tempIterationAfterReturn;
                 break;
             case 15: // End
                 result.add(new AssemblyOperation(Type.END, new Variable[] {arguments[0]}));
@@ -1779,7 +1995,7 @@ public class Compiler {
         return result;
     }
 
-    class AssemblyOperation {
+    public class AssemblyOperation {
         Type type;
         Variable[] vars;
 
@@ -1871,6 +2087,30 @@ public class Compiler {
         GET_SCROLL,
         GET_WIDTH,
         GET_HEIGHT
+    }
+
+    public static int getOutputArg(Type type) {
+        return switch (type) {
+            case ITERATE, POSITION, TIME, RANDOM -> 0;
+
+            case COPY, SIN, COS, TAN, ASIN, ACOS, NOT,
+                 FLOOR, ROUND, CEIL, NEW_LIST, LENGTH_OF_LIST,
+                 LIST_AMOUNT, POINTER, GET_MOUSE_X, GET_MOUSE_Y,
+                 GET_SCROLL, GET_WIDTH, GET_HEIGHT, IS_PRESSED,
+                 MOUSE_PRESSED -> 1;
+
+            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD, POWER,
+                 ATAN2, IS_EQUAL, IS_GREATER, AND, OR,
+                 COPY_FROM, COPY_FROM_LIST -> 2;
+
+            case JUMP_IF, PRINT, PRINT_NUMBERS, JUMP, END,
+                 ADD_LIST, REMOVE_AT_LIST, EMPTY_LIST, REMOVE_ALL_LISTS,
+                 ADD_AT_LIST, REVERSE_LIST, SHUFFLE_LIST, SORT_LIST,
+                 SLEEP, CLEAR_CONSOLE, LIST_SET, UPDATE_CONSOLE,
+                 PRINT_VECTOR, PRINT_VECTOR_NUMBERS, PRINT_VECTOR_SEPARATED,
+                 SET_COLOR, SET_POSITION, SET_TEXT_SIZE, DRAW_TRIANGLES,
+                 DRAW_TEXT, BEGIN_DRAWING, END_DRAWING -> -1;
+        };
     }
 
     private String typeToString(Type type, Line line) {

@@ -10,8 +10,8 @@ public class Main {
 
     public static void testMain(String[] args) throws IOException {
         Compiler compiler = new Compiler();
-        compiler.compile("test.script", "test.aroll");
-        Assembler.assemble("test.aroll", "test.roll");
+        compiler.compile("test.fss", "test.aroll");
+        Assembler.assemble("test.aroll", "test.filmstock");
     }
 
     public static void compile(String inPath, String outPath) throws IOException {
@@ -41,8 +41,10 @@ public class Main {
         System.out.println("-compile  <inpath> <outpath> : Compiles Filmstock into Filmstock Assembly.");
         System.out.println("-assemble <inpath> <outpath> : Assembles Filmstock Assembly into bytecode.");
         System.out.println("-build    <inpath> <outpath> : Compiles and assembles a program.");
-        System.out.println("-test                        : Compiles test.script to test.aroll and assembles it into test.roll.");
-        System.out.println("-debug                       : When compiling, you can use the debug flag to " +
+        System.out.printf("-O         <0-%d / help>      : Sets the optimization level or prints information about optimizations.\n",
+                Compiler.maxOptimizations);
+        System.out.println("-test                        : Compiles test.fss to 'test.aroll' and assembles it into 'test.filmstock'.");
+        System.out.println("-v                           : Verbose: When compiling, you can use this flag to " +
                 "debug a lot of info about the next Compilation / Assembly.");
         System.out.println("                            -> Used for quick debugging.");
     }
@@ -73,6 +75,32 @@ public class Main {
                         build(args[1+lastStatement], args[2+lastStatement]);
                         lastStatement += 3;
                         debug = false;
+                        break;
+
+                    case "-o", "-O":
+                        if (args.length - lastStatement < 2) {
+                            System.err.println("Usage: -O <0-%d / help> ");
+                            return;
+                        }
+
+                        if (args[1+lastStatement].toLowerCase().contains("help")) {
+
+                        }
+                        else {
+                            int level;
+                            try {
+                                level = Integer.parseInt(args[1 + lastStatement]);
+                            } catch (NumberFormatException e) {
+                                System.err.println("Could not parse optimization level!");
+
+                                throw new RuntimeException(e);
+                            }
+
+                            Compiler.optimizationLevel = level;
+                        }
+
+                        lastStatement += 2;
+
                         break;
 
                     case "-assemble":
