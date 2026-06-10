@@ -2091,17 +2091,15 @@ public class Compiler {
 
     public static int getOutputArg(Type type) {
         return switch (type) {
-            case ITERATE, POSITION, TIME, RANDOM -> 0;
+            case ITERATE, POSITION, TIME, NEW_LIST, LIST_AMOUNT, RANDOM,
+                 GET_MOUSE_X, GET_MOUSE_Y, GET_SCROLL, GET_WIDTH, GET_HEIGHT -> 0;
 
             case COPY, SIN, COS, TAN, ASIN, ACOS, NOT,
-                 FLOOR, ROUND, CEIL, NEW_LIST, LENGTH_OF_LIST,
-                 LIST_AMOUNT, POINTER, GET_MOUSE_X, GET_MOUSE_Y,
-                 GET_SCROLL, GET_WIDTH, GET_HEIGHT, IS_PRESSED,
-                 MOUSE_PRESSED -> 1;
+                 FLOOR, ROUND, CEIL, LENGTH_OF_LIST, POINTER,
+                 IS_PRESSED, MOUSE_PRESSED, COPY_FROM -> 1;
 
             case ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD, POWER,
-                 ATAN2, IS_EQUAL, IS_GREATER, AND, OR,
-                 COPY_FROM, COPY_FROM_LIST -> 2;
+                 ATAN2, IS_EQUAL, IS_GREATER, AND, OR, COPY_FROM_LIST -> 2;
 
             case JUMP_IF, PRINT, PRINT_NUMBERS, JUMP, END,
                  ADD_LIST, REMOVE_AT_LIST, EMPTY_LIST, REMOVE_ALL_LISTS,
