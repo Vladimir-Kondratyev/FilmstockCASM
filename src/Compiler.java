@@ -862,7 +862,7 @@ public class Compiler {
 
             if (firstPart.contains("[") && line.code.contains("=")) {
                 if (!firstPart.contains("]"))
-                    throw new CompilationException("Missing \"]\".");
+                    throw new CompilationException("Missing \"]\".", line);
 
                 String[] seprarated = firstPart.split("\\[");
                 seprarated[0] = seprarated[0].strip();
@@ -1046,10 +1046,110 @@ public class Compiler {
         }
     }
 
+    private void syntaxCheck(List<Line> toCheck) {
+        for (Line l : toCheck) {
+            l.code = l.code.replace("==", "?");
+
+            if (l.code.replace(" ", "").endsWith(";")) {
+                throw new CompilationException("Unexpected ';'!", l);
+            }
+        }
+    }
+
+    public void equalsSugar(List<Line> lines) {
+        String delimiters = "&|?><=,\"'";
+
+        for (Line l : lines) {
+            String code = l.code;
+
+            while (code.contains(">=") || code.contains("<=")) {
+                int indexBigger = code.indexOf(">=");
+                int indexSmaller = code.indexOf("<=");
+
+                int toCheck;
+                boolean bigger;
+                if (indexBigger != -1) {
+                    toCheck = indexBigger;
+                    bigger = true;
+                }
+                else {
+                    toCheck = indexSmaller;
+                    bigger = false;
+                }
+
+                int depth = 0;
+                int leftStart;
+                int rightStart;
+                for (leftStart = toCheck - 1; leftStart > -1 ; leftStart--) {
+                    char c = code.charAt(leftStart);
+
+                    if (c == ')') {
+                        depth++;
+                    }
+                    else if (c == '(') {
+                        if (depth == 0) {
+                            leftStart++;
+                            break;
+                        }
+
+                        depth--;
+                    }
+
+                    if (delimiters.contains(String.valueOf(c))) {
+                        leftStart++;
+                        break;
+                    }
+                }
+
+                if (leftStart < 0) leftStart = 0;
+
+                depth = 0;
+                for (rightStart = toCheck + 2; rightStart < code.length() ; rightStart++) {
+                    char c = code.charAt(rightStart);
+
+                    if (c == '(') {
+                        depth++;
+                        continue;
+                    }
+                    else if (c == ')') {
+                        if (depth == 0) {
+                            break;
+                        }
+
+                        depth--;
+                        continue;
+                    }
+
+                    if (delimiters.contains(String.valueOf(c))) {
+                        break;
+                    }
+                }
+
+                String leftEverything = code.substring(0, leftStart);
+                String rightEverything = code.substring(rightStart);
+
+                String left = code.substring(leftStart, toCheck);
+                String right = code.substring(toCheck + 2, rightStart);
+
+                code = leftEverything + "not(" + left + (bigger ? "<" : ">") + right + ")" + rightEverything;
+            }
+
+            l.code = code;
+        }
+
+        for (Line l : lines) {
+            System.out.println(l.code);
+        }
+    }
+
     public void compile(String inPath, String outPath) {
         List<Line> clean = new ArrayList<>(Arrays.asList(readFileClean(inPath)));
 
         clean = inlineFiles(clean);
+
+        syntaxCheck(clean);
+
+        equalsSugar(clean);
 
         clean = separateCurved(clean);
 
@@ -1064,7 +1164,6 @@ public class Compiler {
         clean = functionListSugar(clean);
 
         fastOperationSugar(clean);
-
         // Debug Code
         if (Main.debug) {
             System.out.println("Formatted code:");

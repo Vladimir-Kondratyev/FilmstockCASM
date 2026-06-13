@@ -84,7 +84,10 @@ public class Main {
                         }
 
                         if (args[1+lastStatement].toLowerCase().contains("help")) {
-
+                            System.out.println("Optimization Levels:");
+                            System.out.println("0   - None");
+                            System.out.println("1   - Avoid unnecessary copies.");
+                            System.out.println(">=2 - Loop unrolling.");
                         }
                         else {
                             int level;
