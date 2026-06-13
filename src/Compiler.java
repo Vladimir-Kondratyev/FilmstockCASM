@@ -34,7 +34,7 @@ public class Compiler {
         }
     }
 
-    public static final String FORBIDDEN_SYMBOLS = "_$#@=&|?><^*/+\\-%(){};,[]. ";
+    public static final String FORBIDDEN_SYMBOLS = "$#@=&|?><^*/+\\-%(){};,[]. ";
     private static final String NUMERIC = "1234567890.";
     // private static final String MACRO_FORBIDDEN_SYMBOLS = "@=&|?><^*/+\\-%(){};, ";
 
@@ -500,15 +500,26 @@ public class Compiler {
         long cleanUpAmount = loopAmount % unrollingFactor;
         long realLoopAmount = loopAmount - cleanUpAmount;
 
-        List<Line> body = input.subList(2, input.size() - 1);
+        List<Line> bodyWithVars = input.subList(2, input.size() - 1);
 
-        for (Line l : body) {
+        for (Line l : bodyWithVars) {
             String noSpaces = l.code.replace(" ", "");
 
             // If line edits i
             if (noSpaces.startsWith(i) || noSpaces.contains("ia(" + i + ")") ||
                     noSpaces.contains("it(" + i + ")")) {
                 return returnFail;
+            }
+        }
+
+        List<Line> body = new ArrayList<>(bodyWithVars.size());
+
+        for (Line l : bodyWithVars) {
+            if (l.code.strip().startsWith("var ")) {
+                body.add(new Line(l.code.strip().substring(4), l.id, l.enterContext, l.exitContext));
+            }
+            else {
+                body.add(l);
             }
         }
 
@@ -535,7 +546,8 @@ public class Compiler {
                             input.get(0).id, false, false
                     )
             );
-            for (int j = 0; j < unrollingFactor - 1; j++) {
+            forBody.addAll(bodyWithVars);
+            for (int j = 1; j < unrollingFactor - 1; j++) {
                 forBody.addAll(body);
                 forBody.add(new Line("it(" + i + ")",
                         input.get(0).id, false, false
@@ -550,10 +562,13 @@ public class Compiler {
             );
 
         }
+        else {
+            cleanUp.add(new Line("var " + i + "=" + startingValue, input.get(0).id, false, false));
+        }
 
         if (cleanUpAmount > 0) {
             cleanUpAmount--;
-            cleanUp.addAll(body);
+            cleanUp.addAll(bodyWithVars);
 
             for (int j = 0; j < cleanUpAmount; j++) {
                     cleanUp.add(new Line("it(" + i + ")",
@@ -1053,6 +1068,10 @@ public class Compiler {
             if (l.code.replace(" ", "").endsWith(";")) {
                 throw new CompilationException("Unexpected ';'!", l);
             }
+
+            if (l.code.startsWith("var") && !l.code.contains("=")) {
+                l.code += " = 0";
+            }
         }
     }
 
@@ -1136,10 +1155,45 @@ public class Compiler {
 
             l.code = code;
         }
+    }
 
-        for (Line l : lines) {
-            System.out.println(l.code);
+    public void addContextBraces(List<Line> lines) {
+        for (int i = 0; i < lines.size(); i++) {
+            Line l = lines.get(i);
+
+            if (l.code.startsWith("for")) {
+                lines.add(i, new Line("{", l.id, l.enterContext, l.exitContext));
+                i++;
+
+                int toAdd = getToAdd(lines, i);
+
+                lines.add(toAdd, new Line("}", lines.get(toAdd).id, lines.get(toAdd).enterContext,
+                        lines.get(toAdd).exitContext));
+            }
         }
+    }
+
+    private static int getToAdd(List<Line> lines, int i) {
+        int depth = 0;
+        int toAdd = -1;
+        for (int j = i + 2; j < lines.size(); j++) {
+            if (lines.get(j).code.startsWith("{")) {
+                depth++;
+            }
+
+            else if (lines.get(j).code.startsWith("}")) {
+                if (depth == 0) {
+                    toAdd = j;
+                    break;
+                }
+
+                depth--;
+            }
+        }
+        if (toAdd < 0) {
+            throw new CompilationException("Unclosed bracet!", lines.get(i));
+        }
+        return toAdd;
     }
 
     public void compile(String inPath, String outPath) {
@@ -1152,6 +1206,8 @@ public class Compiler {
         equalsSugar(clean);
 
         clean = separateCurved(clean);
+
+        addContextBraces(clean);
 
         clean = parseMacros(clean);
 
@@ -1453,7 +1509,7 @@ public class Compiler {
             int found = -1;
 
             for (int i = namesList.size() - 1; i > -1; i--) {
-                if (Objects.equals(namesList.get(i), name)) {
+                if (Objects.equals(namesList.get(i).strip(), name.strip())) {
                     found = i;
                     break;
                 }
